@@ -3,13 +3,198 @@ import { mutation, query } from "./_generated/server"
 import { DURATIONS, TICKET_STATUS, WAITING_LIST_STATUS } from "./constant"
 import { internal } from "./_generated/api"
 
-export const get = query({
-    args: {},
-    handler: async (ctx) => {
-        return await ctx.db
-        .query("events")
-        .filter((q) => q.eq(q.field("is_cancelled"), undefined))
+// Helper function to calculate event availability
+async function calculateEventAvailability(ctx: any, eventId: string) {
+    const now = Date.now()
+    
+    // Count total purchased tickets
+    const purchasedCount = await ctx.db
+        .query("tickets")
+        .withIndex("by_event", (q: any) => q.eq("eventId", eventId))
         .collect()
+        .then((tickets: any[]) =>
+            tickets.filter(
+                (t) =>
+                    t.status === TICKET_STATUS.VALID ||
+                    t.status === TICKET_STATUS.USED
+            ).length
+        )
+
+    // Count current valid offers
+    const activeOffers = await ctx.db
+        .query("waitingList")
+        .withIndex("by_event_status", (q: any) =>
+            q.eq("eventId", eventId).eq("status", WAITING_LIST_STATUS.OFFERED)
+        )
+        .collect()
+        .then((entries: any[]) => 
+            entries.filter((e) => (e.offerExpiresAt ?? 0) > now).length
+        )
+
+    return { purchasedCount, activeOffers }
+}
+
+// Input validation helper
+function validateEventInput(args: any) {
+    if (args.price < 0) {
+        throw new Error("Price must be non-negative")
+    }
+    if (args.totalTickets <= 0) {
+        throw new Error("Total tickets must be greater than 0")
+    }
+    if (args.eventDate <= Date.now()) {
+        throw new Error("Event date must be in the future")
+    }
+    if (args.name.trim().length === 0) {
+        throw new Error("Event name cannot be empty")
+    }
+    if (args.location.trim().length === 0) {
+        throw new Error("Event location cannot be empty")
+    }
+}
+
+//Create Event
+export const create = mutation({
+    args:{
+        name: v.string(),
+        description: v.string(),
+        location: v.string(),
+        eventDate: v.number(),// store as timestamp
+        price: v.number(),
+        totalTickets: v.number(),
+        userId: v.string()
+    },
+    handler: async (ctx,args)=>{
+        // Validate input
+        validateEventInput(args)
+
+        const eventId = await ctx.db.insert("events",{
+            name: args.name.trim(),
+            description: args.description.trim(),
+            location: args.location.trim(),
+            eventDate: args.eventDate,
+            price: args.price,
+            totalTickets: args.totalTickets,
+            userId: args.userId
+        })
+        return eventId
+    }
+})
+
+
+// Event update schema
+const eventUpdateSchema = {
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    location: v.optional(v.string()),
+    eventDate: v.optional(v.number()),
+    price: v.optional(v.number()),
+    totalTickets: v.optional(v.number()),
+}
+
+// Update event mutation
+export const update = mutation({
+    args: {
+        eventId: v.id("events"),
+        updates: v.object(eventUpdateSchema),
+    },
+    handler: async (ctx, { eventId, updates }) => {
+        const event = await ctx.db.get(eventId);
+        if (!event) {
+            throw new Error("Event not found");
+        }
+
+        // Validate updates if provided
+        if (updates.price !== undefined && updates.price < 0) {
+            throw new Error("Price must be non-negative")
+        }
+        if (updates.totalTickets !== undefined && updates.totalTickets <= 0) {
+            throw new Error("Total tickets must be greater than 0")
+        }
+        if (updates.eventDate !== undefined && updates.eventDate <= Date.now()) {
+            throw new Error("Event date must be in the future")
+        }
+        if (updates.name !== undefined && updates.name.trim().length === 0) {
+            throw new Error("Event name cannot be empty")
+        }
+        if (updates.location !== undefined && updates.location.trim().length === 0) {
+            throw new Error("Event location cannot be empty")
+        }
+
+        // Check sold tickets constraint
+        if (updates.totalTickets !== undefined) {
+            const { purchasedCount } = await calculateEventAvailability(ctx, eventId);
+            if (updates.totalTickets < purchasedCount) {
+                throw new Error(`Cannot reduce total tickets below ${purchasedCount} (number of tickets already sold)`)
+            }
+        }
+
+        // Trim string fields if they exist
+        const sanitizedUpdates = { ...updates }
+        if (sanitizedUpdates.name) sanitizedUpdates.name = sanitizedUpdates.name.trim()
+        if (sanitizedUpdates.location) sanitizedUpdates.location = sanitizedUpdates.location.trim()
+        if (sanitizedUpdates.description) sanitizedUpdates.description = sanitizedUpdates.description.trim()
+
+        // Update the event with the provided fields
+        await ctx.db.patch(eventId, sanitizedUpdates);
+        return eventId
+    },
+});
+
+export const get = query({
+    args: {
+        paginationOpts: v.optional(v.object({
+            numItems: v.number(),
+            cursor: v.optional(v.union(v.string(), v.null())),
+        })),
+    },
+    handler: async (ctx, { paginationOpts }) => {
+        let query = ctx.db
+            .query("events")
+            .filter((q) => q.eq(q.field("is_cancelled"), undefined))
+            .order("desc")
+
+        if (paginationOpts) {
+            const { cursor, numItems } = paginationOpts
+            return await query.paginate({
+                numItems,
+                cursor: cursor ?? null
+            })
+        }
+        
+        return await query.collect()
+    },
+})
+
+// Get events by user ID
+export const getByUserId = query({
+    args: { 
+        userId: v.string(),
+        paginationOpts: v.optional(v.object({
+            numItems: v.number(),
+            cursor: v.optional(v.union(v.string(), v.null())),
+        })),
+    },
+    handler: async (ctx, { userId, paginationOpts }) => {
+        let query = ctx.db
+            .query("events")
+            .filter((q) => 
+                q.and(
+                    q.eq(q.field("userId"), userId),
+                    q.eq(q.field("is_cancelled"), undefined)
+                )
+            )
+            .order("desc")
+
+        if (paginationOpts) {
+            const { cursor, numItems } = paginationOpts
+            return await query.paginate({
+                numItems,
+                cursor: cursor ?? null
+            })
+        }
+        
+        return await query.collect()
     },
 })
 
@@ -26,32 +211,9 @@ export const getEventAvailability = query({
         const event = await ctx.db.get(eventId)
         if (!event) throw new Error("Event not found")
 
-        // count total purchased tickets
-        const purchasedCount = await ctx.db
-        .query("tickets")
-        .withIndex("by_event", (q) => q.eq("eventId", eventId))
-        .collect()
-        .then(
-            (tickets) =>
-                tickets.filter(
-                    (t) =>
-                        t.status === TICKET_STATUS.VALID ||
-                        t.status === TICKET_STATUS.USED
-                ).length
-        )
-        // count current valid offers
-        const now = Date.now()
-        const activeOffers = await ctx.db
-        .query("waitingList")
-        .withIndex(
-            "by_event_status",
-            (q) => q.eq("eventId", eventId).eq("status", WAITING_LIST_STATUS.OFFERED)
-        )
-        .collect()
-        .then(
-            (entries) => entries.filter((e) => (e.offerExpiresAt ?? 0) > now).length
-        )
+        const { purchasedCount, activeOffers } = await calculateEventAvailability(ctx, eventId)
         const totalReserved = purchasedCount + activeOffers
+        
         return {
             isSoldOut: totalReserved >= event.totalTickets,
             totalTickets: event.totalTickets,
@@ -69,31 +231,7 @@ export const checkAvailability = query({
         const event = await ctx.db.get(eventId)
         if (!event) throw new Error("Event not found")
 
-        // count total purchased tickets
-        const purchasedCount = await ctx.db
-        .query("tickets")
-        .withIndex("by_event", (q) => q.eq("eventId", eventId))
-        .collect()
-        .then(
-            (tickets) =>
-                tickets.filter(
-                    (t) =>
-                        t.status === TICKET_STATUS.VALID ||
-                        t.status === TICKET_STATUS.USED
-                ).length
-        )
-
-        // count current valid offers
-        const now = Date.now()
-        const activeOffers = await ctx.db
-        .query("waitingList")
-        .withIndex("by_event_status", (q) =>
-            q.eq("eventId", eventId).eq("status", WAITING_LIST_STATUS.OFFERED)
-        )
-        .collect()
-        .then(
-            (entries) => entries.filter((e) => (e.offerExpiresAt ?? 0) > now).length
-        )
+        const { purchasedCount, activeOffers } = await calculateEventAvailability(ctx, eventId)
         const availableSpots = event.totalTickets - (purchasedCount + activeOffers)
 
         return {
@@ -103,6 +241,38 @@ export const checkAvailability = query({
             purchasedCount,
             activeOffers,
         }
+    },
+})
+
+// Cancel/Delete event
+export const cancelEvent = mutation({
+    args: { eventId: v.id("events") },
+    handler: async (ctx, { eventId }) => {
+        const event = await ctx.db.get(eventId)
+        if (!event) throw new Error("Event not found")
+
+        // Check if there are any sold tickets
+        const { purchasedCount } = await calculateEventAvailability(ctx, eventId)
+        if (purchasedCount > 0) {
+            throw new Error("Cannot cancel event with sold tickets. Please refund tickets first.")
+        }
+
+        // Mark event as cancelled instead of deleting
+        await ctx.db.patch(eventId, { is_cancelled: true })
+        
+        // Cancel all waiting list entries for this event
+        const waitingListEntries = await ctx.db
+            .query("waitingList")
+            .withIndex("by_event_status", (q) => q.eq("eventId", eventId))
+            .collect()
+
+        await Promise.all(
+            waitingListEntries.map(entry => 
+                ctx.db.patch(entry._id, { status: WAITING_LIST_STATUS.EXPIRED })
+            )
+        )
+
+        return { success: true, message: "Event cancelled successfully" }
     },
 })
 
@@ -141,35 +311,11 @@ export const joinWaitingList = mutation({
         const event = await ctx.db.get(eventId)
         if (!event) throw new Error("Event not found")
 
-        // check if there are any available tickets right now
-        const now = Date.now()
-        
-        // count total purchased tickets
-        const purchasedCount = await ctx.db
-        .query("tickets")
-        .withIndex("by_event", (q) => q.eq("eventId", eventId))
-        .collect()
-        .then(
-            (tickets) =>
-                tickets.filter(
-                    (t) =>
-                        t.status === TICKET_STATUS.VALID ||
-                        t.status === TICKET_STATUS.USED
-                ).length
-        )
-
-        // count current valid offers
-        const activeOffers = await ctx.db
-        .query("waitingList")
-        .withIndex("by_event_status", (q) =>
-            q.eq("eventId", eventId).eq("status", WAITING_LIST_STATUS.OFFERED)
-        )
-        .collect()
-        .then(
-            (entries) => entries.filter((e) => (e.offerExpiresAt ?? 0) > now).length
-        )
+        // Check if there are any available tickets right now
+        const { purchasedCount, activeOffers } = await calculateEventAvailability(ctx, eventId)
         const availableSpots = event.totalTickets - (purchasedCount + activeOffers)
         const available = availableSpots > 0
+        const now = Date.now()
 
         if (available){
             // if ticket available , create an offer entry

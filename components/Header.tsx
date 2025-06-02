@@ -23,8 +23,8 @@ const Header = () => {
                     <Button className='bg-gray-100 text-gray-800 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-200 transition border border-gray-300'>
                         Sign In
                     </Button>
-                    </SignInButton>
-                </SignedOut>
+                </SignInButton>
+            </SignedOut>
         </div>
 
    </div>
@@ -53,7 +53,6 @@ const Header = () => {
             hover:bg-gray-200 transition border border-gray-300'>
                 Sign In
             </button>
-               
         </SignInButton>
     </SignedOut>
 
