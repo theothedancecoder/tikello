@@ -5,8 +5,8 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { auth } from "@clerk/nextjs/server";
 import { DURATIONS } from "@/convex/constant";
-import baseUrl from "@/lib/baseURL";
 import { getConvexClient } from "@/lib/convex";
+import baseUrl from "@/lib/baseUrl";
 
 export type StripeCheckoutMetaData = {
   eventId: Id<"events">;
