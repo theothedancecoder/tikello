@@ -2,7 +2,6 @@ import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs'
 import Image from 'next/image'
 import Link from 'next/link'
 import React from 'react'
-import { Button } from './ui/button'
 import SearchBar from './SearchBar'
 
 const Header = () => {
@@ -20,9 +19,9 @@ const Header = () => {
             </SignedIn>
             <SignedOut>
                 <SignInButton mode='modal'>
-                    <Button className='bg-gray-100 text-gray-800 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-200 transition border border-gray-300'>
+                    <button className='bg-gray-100 text-gray-800 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-200 transition border border-gray-300'>
                         Sign In
-                    </Button>
+                    </button>
                 </SignInButton>
             </SignedOut>
         </div>
@@ -40,8 +39,7 @@ const Header = () => {
             <button className='bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg hover:bg-blue-700 transition'>
                 Sell Tickets</button></Link>
                 <Link href="/tickets">
-                <button className='bg-gray-100 text-gray-800 px-3 py-1.5 text-sm rounded-lg
-                 hover:bg-gray-200 transition border border-gray-300'>
+                <button className='bg-gray-100 text-gray-800 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-200 transition border border-gray-300'>
                     My Tickets</button>
                     </Link>
                     <UserButton/>
@@ -49,8 +47,7 @@ const Header = () => {
     </SignedIn>
     <SignedOut>
         <SignInButton mode='modal'>
-            <button className='bg-gray-100 text-gray px-3 py-1.5 text-sm rounded-lg
-            hover:bg-gray-200 transition border border-gray-300'>
+            <button className='bg-gray-100 text-gray-800 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-200 transition border border-gray-300'>
                 Sign In
             </button>
         </SignInButton>
