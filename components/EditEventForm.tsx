@@ -4,7 +4,10 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import Image from "next/image";
+import { useStorageUrl } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface EditEventFormProps {
   event: {
@@ -15,14 +18,25 @@ interface EditEventFormProps {
     eventDate: number;
     price: number;
     totalTickets: number;
+    imageStorageId?: Id<"_storage">;
   };
 }
 
 export default function EditEventForm({ event }: EditEventFormProps) {
   const router = useRouter();
   const updateEvent = useMutation(api.events.update);
+  const generateUploadUrl = useMutation(api.storage.generateUploadUrl);
+  const updateEventImage = useMutation(api.storage.updateEventImage);
+  const deleteImage = useMutation(api.storage.deleteImage);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  // Image handling
+  const imageInput = useRef<HTMLInputElement>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [removedCurrentImage, setRemovedCurrentImage] = useState(false);
+  const currentImageUrl = useStorageUrl(event.imageStorageId);
 
   const [formData, setFormData] = useState({
     name: event.name,
@@ -33,12 +47,60 @@ export default function EditEventForm({ event }: EditEventFormProps) {
     totalTickets: event.totalTickets,
   });
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      setRemovedCurrentImage(false);
+    }
+  };
+
+  async function handleImageUpload(file: File): Promise<string | null> {
+    try {
+      const postUrl = await generateUploadUrl();
+      const result = await fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      const { storageId } = await result.json();
+      return storageId;
+    } catch (error) {
+      console.error("Failed to upload image:", error);
+      return null;
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError("");
 
     try {
+      let imageStorageId = null;
+
+      // Handle image changes
+      if (selectedImage) {
+        // Upload new image
+        imageStorageId = await handleImageUpload(selectedImage);
+      }
+
+      // Handle image deletion/update
+      if (event.imageStorageId) {
+        if (removedCurrentImage || selectedImage) {
+          // Delete old image from storage
+          await deleteImage({
+            storageId: event.imageStorageId,
+          });
+        }
+      }
+
+      // Update event details
       await updateEvent({
         eventId: event._id,
         updates: {
@@ -50,7 +112,17 @@ export default function EditEventForm({ event }: EditEventFormProps) {
           totalTickets: Number(formData.totalTickets),
         },
       });
-      router.push("/seller/events");
+
+      // Update image if changed
+      if (imageStorageId || removedCurrentImage) {
+        await updateEventImage({
+          eventId: event._id,
+          storageId: imageStorageId ? (imageStorageId as Id<"_storage">) : null,
+        });
+      }
+
+      toast.success("Event updated successfully!");
+      router.push("/seller");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update event");
     } finally {
@@ -145,6 +217,71 @@ export default function EditEventForm({ event }: EditEventFormProps) {
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           required
         />
+      </div>
+
+      {/* Image Upload Section */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Event Image
+        </label>
+        <div className="space-y-4">
+          {imagePreview || (!removedCurrentImage && currentImageUrl) ? (
+            <div className="relative w-32 aspect-square bg-gray-100 rounded-lg border">
+              <Image
+                src={imagePreview || currentImageUrl!}
+                alt="Event image preview"
+                fill
+                className="object-cover rounded-lg"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedImage(null);
+                  setImagePreview(null);
+                  setRemovedCurrentImage(true);
+                  if (imageInput.current) {
+                    imageInput.current.value = "";
+                  }
+                }}
+                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 transition-colors text-sm"
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                ref={imageInput}
+                className="block w-full text-sm text-gray-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-md file:border-0
+                  file:text-sm file:font-medium
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Upload a new image for your event
+              </p>
+            </div>
+          )}
+          
+          {(imagePreview || (!removedCurrentImage && currentImageUrl)) && (
+            <button
+              type="button"
+              onClick={() => {
+                if (imageInput.current) {
+                  imageInput.current.click();
+                }
+              }}
+              className="text-sm text-blue-600 hover:text-blue-800 underline"
+            >
+              Change Image
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (

@@ -9,7 +9,7 @@ import EditEventForm from "@/components/EditEventForm";
 
 export default function EditEventPage() {
   const params = useParams();
-  const eventId = params.eventId as Id<"events">;
+  const eventId = params.id as Id<"events">;
   const event = useQuery(api.events.getById, { eventId });
 
   if (!event) {
