@@ -18,6 +18,7 @@ import {
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useStorageUrl } from "@/lib/utils";
+import { formatPriceWithConversion, getCurrencyInfo } from "@/lib/currency";
 import Image from "next/image";
 import PurchaseTicket from "./PurchasedTicket";
 
@@ -219,7 +220,7 @@ export default function EventCard({ eventId }: { eventId: Id<"events"> }) {
                   : "bg-green-50 text-green-700"
               }`}
             >
-              {event.price.toFixed(2)}kr
+              {formatPriceWithConversion(event.price)}
             </span>
             {availability.purchasedCount >= availability.totalTickets && (
               <span className="px-4 py-1.5 bg-red-50 text-red-700 font-semibold rounded-full text-sm">

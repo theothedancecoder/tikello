@@ -19,8 +19,18 @@ export const CURRENCY_CONFIGS: Record<string, CurrencyConfig> = {
 
 // Get user's currency based on their location/preferences
 export function getUserCurrency(): CurrencyConfig {
-  // Try to detect user's location from browser
+  // Check for saved preference first
   if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('preferred-currency');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (error) {
+        console.error('Failed to parse saved currency preference');
+      }
+    }
+    
+    // Try to detect user's location from browser
     const userLocale = navigator.language || 'en-US';
     const countryCode = userLocale.split('-')[1]?.toUpperCase();
     

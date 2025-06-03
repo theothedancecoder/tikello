@@ -3,6 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import React from 'react'
 import SearchBar from './SearchBar'
+import CurrencySelector from './CurrencySelector'
 
 const Header = () => {
   return (
@@ -35,6 +36,7 @@ const Header = () => {
    <div className='hidden lg:block ml-auto'>
     <SignedIn>
         <div className='flex items-center gap-3'>
+            <CurrencySelector />
             <Link href="/seller">
             <button className='bg-blue-600 text-white px-3 py-1.5 text-sm rounded-lg hover:bg-blue-700 transition'>
                 Sell Tickets</button></Link>
@@ -46,11 +48,14 @@ const Header = () => {
         </div>
     </SignedIn>
     <SignedOut>
-        <SignInButton mode='modal'>
-            <button className='bg-gray-100 text-gray-800 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-200 transition border border-gray-300'>
-                Sign In
-            </button>
-        </SignInButton>
+        <div className='flex items-center gap-3'>
+            <CurrencySelector />
+            <SignInButton mode='modal'>
+                <button className='bg-gray-100 text-gray-800 px-3 py-1.5 text-sm rounded-lg hover:bg-gray-200 transition border border-gray-300'>
+                    Sign In
+                </button>
+            </SignInButton>
+        </div>
     </SignedOut>
 
    </div>
@@ -68,6 +73,11 @@ const Header = () => {
       </button>
     </Link>
   </SignedIn>
+</div>
+
+{/*mobile currency selector*/}
+<div className='lg:hidden w-full flex justify-center'>
+  <CurrencySelector />
 </div>
 
      </div>

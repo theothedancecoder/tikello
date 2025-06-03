@@ -35,7 +35,21 @@ This document provides comprehensive testing instructions for the new buyer dash
 
 ## 🎯 FUNCTIONALITY TESTS
 
-### Test 4: Dashboard Access Flow
+### Test 4: Currency Localization
+**Objective**: Verify prices display in user's local currency
+**Steps**:
+1. Open application in browser
+2. Check the currency selector in the header (globe icon)
+3. Note current currency (should auto-detect your location)
+4. View event prices on homepage
+5. Change currency using the selector dropdown
+6. **Expected Result**: 
+   - Prices update to selected currency (USD for US, GBP for UK, etc.)
+   - No NOK reference prices shown
+   - Currency persists after page refresh
+7. **Status**: ❌ FAIL / ✅ PASS
+
+### Test 5: Dashboard Access Flow
 **Objective**: Verify normal user flow to access dashboard
 **Steps**:
 1. Sign in to application
@@ -48,7 +62,7 @@ This document provides comprehensive testing instructions for the new buyer dash
    - Shows "Buyers Dashboard" section
 6. **Status**: ❌ FAIL / ✅ PASS
 
-### Test 5: Data Display Verification
+### Test 6: Data Display Verification
 **Objective**: Verify all buyer data displays correctly
 **Steps**:
 1. Access dashboard for event with ticket sales
@@ -62,7 +76,7 @@ This document provides comprehensive testing instructions for the new buyer dash
 3. **Expected Result**: All data populated correctly, dates formatted properly
 4. **Status**: ❌ FAIL / ✅ PASS
 
-### Test 6: Search Functionality
+### Test 7: Search Functionality
 **Objective**: Test buyer search by name/email
 **Steps**:
 1. In search box, enter partial buyer name
@@ -75,7 +89,7 @@ This document provides comprehensive testing instructions for the new buyer dash
    - "No buyers found" for invalid searches
 7. **Status**: ❌ FAIL / ✅ PASS
 
-### Test 7: Ticket Type Filter
+### Test 8: Ticket Type Filter
 **Objective**: Test filtering by ticket type
 **Steps**:
 1. Select "Leader" from ticket type dropdown
@@ -86,7 +100,7 @@ This document provides comprehensive testing instructions for the new buyer dash
 6. **Expected Result**: Filtering works correctly for all types
 7. **Status**: ❌ FAIL / ✅ PASS
 
-### Test 8: Status Filter
+### Test 9: Status Filter
 **Objective**: Test filtering by ticket status
 **Steps**:
 1. Select "Valid" from status dropdown
@@ -100,7 +114,7 @@ This document provides comprehensive testing instructions for the new buyer dash
 
 ## 📊 EXPORT FUNCTIONALITY TESTS
 
-### Test 9: CSV/Excel Export
+### Test 10: CSV/Excel Export
 **Objective**: Verify CSV export functionality
 **Steps**:
 1. Click green "Export Excel" button
@@ -112,7 +126,7 @@ This document provides comprehensive testing instructions for the new buyer dash
 3. Open CSV in Excel/Sheets to verify formatting
 4. **Status**: ❌ FAIL / ✅ PASS
 
-### Test 10: PDF Export
+### Test 11: PDF Export
 **Objective**: Verify PDF export functionality
 **Steps**:
 1. Click red "Export PDF" button
@@ -124,7 +138,7 @@ This document provides comprehensive testing instructions for the new buyer dash
 3. Test printing/saving as PDF
 4. **Status**: ❌ FAIL / ✅ PASS
 
-### Test 11: Export with Filters
+### Test 12: Export with Filters
 **Objective**: Verify exports respect active filters
 **Steps**:
 1. Apply search filter (e.g., search for specific name)
@@ -138,7 +152,7 @@ This document provides comprehensive testing instructions for the new buyer dash
 
 ## 🔍 EDGE CASE TESTS
 
-### Test 12: Empty Event
+### Test 13: Empty Event
 **Objective**: Test dashboard with no ticket sales
 **Steps**:
 1. Access dashboard for event with zero ticket sales
@@ -147,7 +161,7 @@ This document provides comprehensive testing instructions for the new buyer dash
    - Export buttons still present but export empty files
 3. **Status**: ❌ FAIL / ✅ PASS
 
-### Test 13: Large Dataset
+### Test 14: Large Dataset
 **Objective**: Test performance with many buyers
 **Steps**:
 1. Access dashboard for event with 50+ ticket sales
@@ -159,7 +173,7 @@ This document provides comprehensive testing instructions for the new buyer dash
    - Exports complete successfully
 5. **Status**: ❌ FAIL / ✅ PASS
 
-### Test 14: Special Characters
+### Test 15: Special Characters
 **Objective**: Test handling of special characters in data
 **Steps**:
 1. Look for buyers with special characters in names/emails
@@ -175,7 +189,7 @@ This document provides comprehensive testing instructions for the new buyer dash
 
 ## 🎨 UI/UX TESTS
 
-### Test 15: Responsive Design
+### Test 16: Responsive Design
 **Objective**: Test dashboard on different screen sizes
 **Steps**:
 1. Test on desktop (1920x1080)
@@ -187,7 +201,7 @@ This document provides comprehensive testing instructions for the new buyer dash
    - Export buttons remain visible
 5. **Status**: ❌ FAIL / ✅ PASS
 
-### Test 16: Navigation
+### Test 17: Navigation
 **Objective**: Test navigation elements
 **Steps**:
 1. Click "Back to Seller Dashboard" link
@@ -238,25 +252,26 @@ SECURITY TESTS:
 - Test 3 (Ownership): ❌ FAIL / ✅ PASS
 
 FUNCTIONALITY TESTS:
-- Test 4 (Access): ❌ FAIL / ✅ PASS
-- Test 5 (Display): ❌ FAIL / ✅ PASS
-- Test 6 (Search): ❌ FAIL / ✅ PASS
-- Test 7 (Type Filter): ❌ FAIL / ✅ PASS
-- Test 8 (Status Filter): ❌ FAIL / ✅ PASS
+- Test 4 (Currency): ❌ FAIL / ✅ PASS
+- Test 5 (Access): ❌ FAIL / ✅ PASS
+- Test 6 (Display): ❌ FAIL / ✅ PASS
+- Test 7 (Search): ❌ FAIL / ✅ PASS
+- Test 8 (Type Filter): ❌ FAIL / ✅ PASS
+- Test 9 (Status Filter): ❌ FAIL / ✅ PASS
 
 EXPORT TESTS:
-- Test 9 (CSV): ❌ FAIL / ✅ PASS
-- Test 10 (PDF): ❌ FAIL / ✅ PASS
-- Test 11 (Filtered Export): ❌ FAIL / ✅ PASS
+- Test 10 (CSV): ❌ FAIL / ✅ PASS
+- Test 11 (PDF): ❌ FAIL / ✅ PASS
+- Test 12 (Filtered Export): ❌ FAIL / ✅ PASS
 
 EDGE CASES:
-- Test 12 (Empty): ❌ FAIL / ✅ PASS
-- Test 13 (Large Dataset): ❌ FAIL / ✅ PASS
-- Test 14 (Special Chars): ❌ FAIL / ✅ PASS
+- Test 13 (Empty): ❌ FAIL / ✅ PASS
+- Test 14 (Large Dataset): ❌ FAIL / ✅ PASS
+- Test 15 (Special Chars): ❌ FAIL / ✅ PASS
 
 UI/UX:
-- Test 15 (Responsive): ❌ FAIL / ✅ PASS
-- Test 16 (Navigation): ❌ FAIL / ✅ PASS
+- Test 16 (Responsive): ❌ FAIL / ✅ PASS
+- Test 17 (Navigation): ❌ FAIL / ✅ PASS
 
 OVERALL RESULT: ❌ FAIL / ✅ PASS / ⚠️ NEEDS WORK
 

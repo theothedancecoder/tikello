@@ -5,9 +5,11 @@ import { useQuery } from "convex/react";
 import { Id } from "@/convex/_generated/dataModel";
 import { useState } from "react";
 import { FileSpreadsheet, FileText } from "lucide-react";
+import { formatPriceWithConversion, getCurrencyInfo } from "@/lib/currency";
 
 // Function to download data as CSV
 function downloadAsCSV(buyers: any[]) {
+  const currencyInfo = getCurrencyInfo();
   const headers = ["Name", "Email", "Ticket Type", "Status", "Purchase Date", "Amount"];
   const rows = buyers.map(buyer => [
     buyer.buyer.name,
@@ -15,7 +17,7 @@ function downloadAsCSV(buyers: any[]) {
     buyer.ticketType,
     buyer.status,
     new Date(buyer.purchasedAt).toLocaleString(),
-    buyer.amount || "-"
+    buyer.amount ? formatPriceWithConversion(buyer.amount) : "-"
   ]);
 
   const csvContent = [
@@ -71,7 +73,7 @@ function downloadAsPDF(buyers: any[]) {
                 <td>${buyer.ticketType}</td>
                 <td>${buyer.status}</td>
                 <td>${new Date(buyer.purchasedAt).toLocaleString()}</td>
-                <td>${buyer.amount || "-"}</td>
+                <td>${buyer.amount ? formatPriceWithConversion(buyer.amount) : "-"}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -179,7 +181,9 @@ export default function BuyerDashboard({ eventId }: { eventId: Id<"events"> }) {
                 <td className="border border-gray-300 px-4 py-2">
                   {new Date(buyer.purchasedAt).toLocaleString()}
                 </td>
-                <td className="border border-gray-300 px-4 py-2">{buyer.amount ?? "-"}</td>
+                <td className="border border-gray-300 px-4 py-2">
+                  {buyer.amount ? formatPriceWithConversion(buyer.amount) : "-"}
+                </td>
               </tr>
             ))
           ) : (
