@@ -3,27 +3,30 @@
 import { useState, useEffect } from "react";
 import { Globe } from "lucide-react";
 import { CURRENCY_CONFIGS, getUserCurrency, type CurrencyConfig } from "@/lib/currency";
+import { saveToLocalStorage, getFromLocalStorage, isCookieAllowed } from "@/lib/cookies";
 
 export default function CurrencySelector() {
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyConfig>(getUserCurrency());
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    // Load saved currency preference from localStorage
-    const saved = localStorage.getItem('preferred-currency');
+    // Load saved currency preference from localStorage (only if cookies allowed)
+    const saved = getFromLocalStorage('preferred-currency');
     if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setSelectedCurrency(parsed);
-      } catch (error) {
-        console.error('Failed to parse saved currency preference');
-      }
+      setSelectedCurrency(saved);
     }
   }, []);
 
   const handleCurrencyChange = (currency: CurrencyConfig) => {
     setSelectedCurrency(currency);
-    localStorage.setItem('preferred-currency', JSON.stringify(currency));
+    
+    // Only save to localStorage if preference cookies are allowed
+    const saved = saveToLocalStorage('preferred-currency', currency);
+    if (!saved) {
+      // Show a message that preferences won't be saved
+      console.log('Currency preference not saved - preference cookies disabled');
+    }
+    
     setIsOpen(false);
     // Trigger a page refresh to update all prices
     window.location.reload();
@@ -59,7 +62,12 @@ export default function CurrencySelector() {
               </button>
             ))}
             <div className="text-xs text-gray-400 px-2 py-1 border-t border-gray-100 mt-1">
-              Prices converted from NOK
+              <div>Prices converted from NOK</div>
+              {!isCookieAllowed('preferences') && (
+                <div className="text-orange-600 mt-1">
+                  ⚠️ Preferences not saved (cookies disabled)
+                </div>
+              )}
             </div>
           </div>
         </div>

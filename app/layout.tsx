@@ -5,6 +5,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import Header from "@/components/Header";
 import SyncUserWithConvex from "@/components/SyncUserWithConvex";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
+import CookieConsent from "@/components/CookieConsent";
 import { Toaster } from "sonner";
 
 const inter = Inter({
@@ -33,6 +34,7 @@ export default function RootLayout({
         <Header/>
         <SyncUserWithConvex/>
         {children}
+        <CookieConsent/>
         <Toaster/>
         </ClerkProvider>
         </ConvexClientProvider>
