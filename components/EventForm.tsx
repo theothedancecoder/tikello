@@ -87,6 +87,8 @@ export default function EventForm({ mode, initialData }: EventFormProps) {
     },
   });
 
+  const [redirectToTickets, setRedirectToTickets] = useState(false);
+
   async function onSubmit(values: FormData) {
     if (!user?.id) return;
 
@@ -124,7 +126,11 @@ export default function EventForm({ mode, initialData }: EventFormProps) {
             });
           }
 
-          router.push(`/event/${eventId}`);
+          if (redirectToTickets) {
+            router.push(`/seller/events/${eventId}/tickets`);
+          } else {
+            router.push(`/event/${eventId}`);
+          }
         } else {
           // Ensure initialData exists before proceeding with update
           if (!initialData) {
@@ -197,6 +203,33 @@ export default function EventForm({ mode, initialData }: EventFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
+          <h3 className="text-sm font-medium text-blue-800 mb-2">Ticket Management</h3>
+          {mode === "edit" ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push(`/seller/events/${initialData?._id}/tickets`)}
+              className="text-blue-600 hover:text-blue-700"
+            >
+              Manage Ticket Types
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-blue-600">
+                Create the event first to manage ticket types
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setRedirectToTickets(true)}
+                className={`text-blue-600 hover:text-blue-700 ${redirectToTickets ? 'bg-blue-100' : ''}`}
+              >
+                {redirectToTickets ? 'Will redirect to ticket management after creation' : 'Create event and manage tickets'}
+              </Button>
+            </div>
+          )}
+        </div>
         {/* Form fields */}
         <div className="space-y-4">
           <FormField
@@ -277,7 +310,7 @@ export default function EventForm({ mode, initialData }: EventFormProps) {
                 <FormControl>
                   <div className="relative">
                     <span className="absolute left-2 top-1/2 -translate-y-1/2">
-                      £
+                      kr
                     </span>
                     <Input
                       type="number"

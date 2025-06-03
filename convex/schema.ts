@@ -12,7 +12,28 @@ export default defineSchema({
     userId: v.string(),
     imageStorageId: v.optional(v.id("_storage")),
     is_cancelled: v.optional(v.boolean()),
+    hasMultiTierTickets: v.optional(v.boolean()), // Flag to indicate if event uses new ticket system
   }),
+  
+  ticketTypes: defineTable({
+    eventId: v.id("events"),
+    name: v.string(),
+    description: v.string(),
+    price: v.number(),
+    totalQuantity: v.number(),
+    soldQuantity: v.number(),
+    type: v.union(
+      v.literal("leader"),
+      v.literal("follower"),
+      v.literal("refreshment"),
+      v.literal("afterparty"),
+      v.literal("other")
+    ),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    sortOrder: v.number(),
+    isEnabled: v.boolean(),
+  }).index("by_event", ["eventId"]),
   tickets: defineTable({
     eventId: v.id("events"),
     userId: v.string(),
@@ -25,11 +46,13 @@ export default defineSchema({
     ),
     paymentIntentId: v.optional(v.string()),
     amount: v.optional(v.number()),
+    ticketTypeId: v.optional(v.id("ticketTypes")), // For multi-tier tickets
   })
     .index("by_event", ["eventId"])
     .index("by_user", ["userId"])
     .index("by_user_event", ["userId", "eventId"])
-    .index("by_payment_intent", ["paymentIntentId"]),
+    .index("by_payment_intent", ["paymentIntentId"])
+    .index("by_ticket_type", ["ticketTypeId"]),
 
   waitingList: defineTable({
     eventId: v.id("events"),

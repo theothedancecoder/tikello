@@ -13,6 +13,7 @@ import {
   XCircle,
   PencilIcon,
   StarIcon,
+  BarChart2,
 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -93,7 +94,7 @@ export default function EventCard({ eventId }: { eventId: Id<"events"> }) {
 
     if (isEventOwner) {
       return (
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -103,6 +104,26 @@ export default function EventCard({ eventId }: { eventId: Id<"events"> }) {
           >
             <PencilIcon className="w-5 h-5" />
             Edit Event
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/seller/events/${eventId}/tickets`);
+            }}
+            className="w-full bg-blue-50 text-blue-700 px-6 py-3 rounded-lg font-medium hover:bg-blue-100 transition-colors duration-200 shadow-sm flex items-center justify-center gap-2 border border-blue-200"
+          >
+            <Ticket className="w-5 h-5" />
+            Manage Tickets
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/seller/events/${eventId}/dashboard`);
+            }}
+            className="w-full bg-green-50 text-green-700 px-6 py-3 rounded-lg font-medium hover:bg-green-100 transition-colors duration-200 shadow-sm flex items-center justify-center gap-2 border border-green-200"
+          >
+            <BarChart2 className="w-5 h-5" />
+            View Dashboard
           </button>
         </div>
       );

@@ -7,6 +7,7 @@ import { useQuery } from "convex/react";
 import { CalendarDays, MapPin, Ticket, Users } from "lucide-react";
 import { useParams } from "next/navigation";
 import Spinner from "@/components/Spinner";
+import TicketTypeDisplay from "@/components/TicketTypeDisplay";
 import { SignInButton, useUser } from "@clerk/nextjs";
 import { useStorageUrl } from "@/lib/utils";
 import Image from "next/image";
@@ -16,13 +17,12 @@ import JoinQueue from "@/components/JoinQueue";
 export default function EventPage() {
   const { user } = useUser();
   const params = useParams();
-  const event = useQuery(api.events.getById, {
-    eventId: params.id as Id<"events">,
-  });
-  const availability = useQuery(api.events.getEventAvailability, {
-    eventId: params.id as Id<"events">,
-  });
+  const eventId = params.id as Id<"events">;
+  
+  const event = useQuery(api.events.getById, { eventId });
+  const availability = useQuery(api.events.getEventAvailability, { eventId });
   const imageUrl = useStorageUrl(event?.imageStorageId);
+  const ticketTypes = useQuery(api.ticketTypes.get, { eventId });
 
   if (!event || !availability) {
     return (
@@ -31,6 +31,8 @@ export default function EventPage() {
       </div>
     );
   }
+
+  const isPastEvent = event.eventDate < Date.now();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,24 +80,28 @@ export default function EventPage() {
                     <p className="text-gray-900">{event.location}</p>
                   </div>
 
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <div className="flex items-center text-gray-600 mb-1">
-                      <Ticket className="w-5 h-5 mr-2 text-blue-600" />
-                      <span className="text-sm font-medium">Price</span>
-                    </div>
-                    <p className="text-gray-900">£{event.price.toFixed(2)}</p>
-                  </div>
+                  {!event.hasMultiTierTickets && (
+                    <>
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <div className="flex items-center text-gray-600 mb-1">
+                          <Ticket className="w-5 h-5 mr-2 text-blue-600" />
+                          <span className="text-sm font-medium">Price</span>
+                        </div>
+                        <p className="text-gray-900">kr {event.price.toFixed(2)}</p>
+                      </div>
 
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                    <div className="flex items-center text-gray-600 mb-1">
-                      <Users className="w-5 h-5 mr-2 text-blue-600" />
-                      <span className="text-sm font-medium">Availability</span>
-                    </div>
-                    <p className="text-gray-900">
-                      {availability.totalTickets - availability.purchasedCount}{" "}
-                      / {availability.totalTickets} left
-                    </p>
-                  </div>
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <div className="flex items-center text-gray-600 mb-1">
+                          <Users className="w-5 h-5 mr-2 text-blue-600" />
+                          <span className="text-sm font-medium">Availability</span>
+                        </div>
+                        <p className="text-gray-900">
+                          {availability.totalTickets - availability.purchasedCount}{" "}
+                          / {availability.totalTickets} left
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Additional Event Information */}
@@ -109,26 +115,46 @@ export default function EventPage() {
                     <li>• Age restriction: 18+</li>
                   </ul>
                 </div>
+
+                {/* Ticket Types Display */}
+                {event.hasMultiTierTickets && ticketTypes && ticketTypes.length > 0 && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <TicketTypeDisplay eventId={eventId} />
+                  </div>
+                )}
               </div>
 
               {/* Right Column - Ticket Purchase Card */}
               <div>
                 <div className="sticky top-8 space-y-4">
-                  <EventCard eventId={params.id as Id<"events">} />
+                  {!event.hasMultiTierTickets && (
+                    <EventCard eventId={eventId} />
+                  )}
 
-                  {user ? (
-                    <JoinQueue
-                      eventId={params.id as Id<"events">}
-                      userId={user.id}
-                    />
-                  ) : (
-                    <SignInButton>
-                      <Button className="w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700
-                       hover:to-blue-900 text-white font-medium py-2 px-4 rounded-lg 
-                       transition-all duration-200 shadow-md hover:shadow-lg">
-                        Sign in to buy tickets
-                      </Button>
-                    </SignInButton>
+                  {!isPastEvent && !event.is_cancelled && (
+                    user ? (
+                      event.hasMultiTierTickets ? (
+                        <div className="bg-white border border-gray-200 rounded-lg p-6">
+                          <TicketTypeDisplay 
+                            eventId={eventId} 
+                            onSelectTicketType={(ticketTypeId) => {
+                              // TODO: Implement ticket type selection and purchase
+                              console.log('Selected ticket type:', ticketTypeId);
+                            }} 
+                          />
+                        </div>
+                      ) : (
+                        <JoinQueue eventId={eventId} userId={user.id} />
+                      )
+                    ) : (
+                      <SignInButton>
+                        <Button className="w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700
+                         hover:to-blue-900 text-white font-medium py-2 px-4 rounded-lg 
+                         transition-all duration-200 shadow-md hover:shadow-lg">
+                          Sign in to buy tickets
+                        </Button>
+                      </SignInButton>
+                    )
                   )}
                 </div>
               </div>

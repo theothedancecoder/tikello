@@ -132,6 +132,17 @@ export default function EditEventForm({ event }: EditEventFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Ticket Management Section */}
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-lg">
+        <h3 className="text-sm font-medium text-blue-800 mb-2">Ticket Management</h3>
+        <button
+          type="button"
+          onClick={() => router.push(`/seller/events/${event._id}/tickets`)}
+          className="text-blue-600 hover:text-blue-700 bg-white px-4 py-2 rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors duration-200"
+        >
+          Manage Ticket Types
+        </button>
+      </div>
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">
           Event Name
@@ -190,7 +201,7 @@ export default function EditEventForm({ event }: EditEventFormProps) {
 
       <div>
         <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-          Price (£)
+          Price (kr)
         </label>
         <input
           type="number"

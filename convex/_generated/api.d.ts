@@ -13,9 +13,11 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as buyers from "../buyers.js";
 import type * as constant from "../constant.js";
 import type * as events from "../events.js";
 import type * as storage from "../storage.js";
+import type * as ticketTypes from "../ticketTypes.js";
 import type * as tickets from "../tickets.js";
 import type * as users from "../users.js";
 import type * as waitingList from "../waitingList.js";
@@ -29,9 +31,11 @@ import type * as waitingList from "../waitingList.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  buyers: typeof buyers;
   constant: typeof constant;
   events: typeof events;
   storage: typeof storage;
+  ticketTypes: typeof ticketTypes;
   tickets: typeof tickets;
   users: typeof users;
   waitingList: typeof waitingList;
