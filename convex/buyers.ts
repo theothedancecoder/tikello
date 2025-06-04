@@ -88,7 +88,7 @@ export const getBuyersByEvent = query({
 
     if (typeof args.ticketType === "string") {
       buyerData = buyerData.filter(data => 
-        data.ticketType.toLowerCase() === args.ticketType.toLowerCase()
+        data.ticketType.toLowerCase() === args.ticketType!.toLowerCase()
       );
     }
 

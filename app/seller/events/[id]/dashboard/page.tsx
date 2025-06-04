@@ -8,11 +8,31 @@ import Spinner from "@/components/Spinner";
 import BuyerDashboard from "@/components/BuyerDashboard";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
 
 export default function EventDashboardPage() {
+  const { user, isLoaded, isSignedIn } = useUser();
   const params = useParams();
   const eventId = params.id as Id<"events">;
-  const event = useQuery(api.events.getById, { eventId });
+  const event = useQuery(api.events.getById, isLoaded && isSignedIn ? { eventId } : "skip");
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (!isSignedIn || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Please sign in to view the dashboard</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!event) {
     return (

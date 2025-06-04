@@ -36,6 +36,7 @@ export const create = mutation({
     price: v.number(),
     totalTickets: v.number(),
     userId: v.string(),
+    currency: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const eventId = await ctx.db.insert("events", {
@@ -46,6 +47,7 @@ export const create = mutation({
       price: args.price,
       totalTickets: args.totalTickets,
       userId: args.userId,
+      currency: args.currency || "NOK", // Default to NOK if not provided
     });
     return eventId;
   },
@@ -266,6 +268,85 @@ export const purchaseTicket = mutation({
   },
 });
 
+// Purchase ticket type (for multi-tier tickets)
+export const purchaseTicketType = mutation({
+  args: {
+    eventId: v.id("events"),
+    userId: v.string(),
+    ticketTypeId: v.id("ticketTypes"),
+    paymentInfo: v.object({
+      paymentIntentId: v.string(),
+      amount: v.number(),
+    }),
+  },
+  handler: async (ctx, { eventId, userId, ticketTypeId, paymentInfo }) => {
+    console.log("Starting purchaseTicketType handler", {
+      eventId,
+      userId,
+      ticketTypeId,
+    });
+
+    // Verify event exists and is active
+    const event = await ctx.db.get(eventId);
+    if (!event) {
+      throw new Error("Event not found");
+    }
+
+    if (event.is_cancelled) {
+      throw new Error("Event is no longer active");
+    }
+
+    // Verify ticket type exists and belongs to this event
+    const ticketType = await ctx.db.get(ticketTypeId);
+    if (!ticketType) {
+      throw new Error("Ticket type not found");
+    }
+
+    if (ticketType.eventId !== eventId) {
+      throw new Error("Ticket type does not belong to this event");
+    }
+
+    // Check if ticket type is available
+    if (ticketType.soldQuantity >= ticketType.totalQuantity) {
+      throw new Error("Ticket type is sold out");
+    }
+
+    // Check if ticket type is enabled and within sales window
+    const now = Date.now();
+    const isWithinSalesWindow =
+      (!ticketType.startDate || ticketType.startDate <= now) &&
+      (!ticketType.endDate || ticketType.endDate > now);
+
+    if (!ticketType.isEnabled || !isWithinSalesWindow) {
+      throw new Error("Ticket type is not available for purchase");
+    }
+
+    try {
+      console.log("Creating ticket with payment info", paymentInfo);
+      // Create ticket with payment info and ticket type reference
+      await ctx.db.insert("tickets", {
+        eventId,
+        userId,
+        purchasedAt: Date.now(),
+        status: TICKET_STATUS.VALID,
+        paymentIntentId: paymentInfo.paymentIntentId,
+        amount: paymentInfo.amount,
+        ticketTypeId: ticketTypeId,
+      });
+
+      // Increment sold quantity for the ticket type
+      await ctx.db.patch(ticketTypeId, {
+        soldQuantity: ticketType.soldQuantity + 1,
+      });
+
+      console.log("Purchase ticket type completed successfully");
+    } catch (error) {
+      console.error("Failed to complete ticket type purchase:", error);
+      throw new Error(`Failed to complete ticket type purchase: ${error}`);
+    }
+  },
+});
+
 // Get user's tickets with event information
 export const getUserTickets = query({
   args: { userId: v.string() },
@@ -427,6 +508,7 @@ export const update = mutation({
       eventDate: v.float64(),
       price: v.float64(),
       totalTickets: v.float64(),
+      currency: v.optional(v.string()),
     }),
   },
   handler: async (ctx, { eventId, updates }) => {
@@ -491,6 +573,20 @@ export const cancelEvent = mutation({
     for (const entry of waitingListEntries) {
       await ctx.db.delete(entry._id);
     }
+
+    return { success: true };
+  },
+});
+
+export const enableMultiTierTickets = mutation({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, { eventId }) => {
+    const event = await ctx.db.get(eventId);
+    if (!event) throw new Error("Event not found");
+
+    await ctx.db.patch(eventId, {
+      hasMultiTierTickets: true,
+    });
 
     return { success: true };
   },

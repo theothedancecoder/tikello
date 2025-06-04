@@ -1,3 +1,4 @@
+
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -28,16 +29,27 @@ export default function RootLayout({
       <body
         className={`${inter.variable} antialiased`}
       >
-        <ConvexClientProvider>
-        <ClerkProvider>
-
-        <Header/>
-        <SyncUserWithConvex/>
-        {children}
-        <CookieConsent/>
-        <Toaster/>
+        <ClerkProvider
+          publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+          appearance={{
+            variables: {
+              colorPrimary: "#3b82f6",
+            },
+          }}
+        >
+          
+          <ConvexClientProvider>
+            <div className="min-h-screen flex flex-col">
+              <Header/>
+              <SyncUserWithConvex/>
+              <main className="flex-grow">
+                {children}
+              </main>
+              <CookieConsent/>
+              <Toaster/>
+            </div>
+          </ConvexClientProvider>
         </ClerkProvider>
-        </ConvexClientProvider>
        
       </body>
     </html>

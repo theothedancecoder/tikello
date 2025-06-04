@@ -201,7 +201,7 @@ export default function EditEventForm({ event }: EditEventFormProps) {
 
       <div>
         <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-          Price (kr)
+          Price ()
         </label>
         <input
           type="number"

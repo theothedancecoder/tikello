@@ -24,6 +24,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useStorageUrl } from "@/lib/utils";
+import { CURRENCY_CONFIGS } from "@/lib/currency";
 
 const formSchema = z.object({
   name: z.string().min(1, "Event name is required"),
@@ -37,6 +38,7 @@ const formSchema = z.object({
     ),
   price: z.number().min(0, "Price must be 0 or greater"),
   totalTickets: z.number().min(1, "Must have at least 1 ticket"),
+  currency: z.string().min(1, "Currency is required"),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -50,6 +52,7 @@ interface InitialEventData {
   price: number;
   totalTickets: number;
   imageStorageId?: Id<"_storage">;
+  currency?: string;
 }
 
 interface EventFormProps {
@@ -84,6 +87,7 @@ export default function EventForm({ mode, initialData }: EventFormProps) {
       eventDate: initialData ? new Date(initialData.eventDate) : new Date(),
       price: initialData?.price ?? 0,
       totalTickets: initialData?.totalTickets ?? 1,
+      currency: initialData?.currency ?? "NOK", // Default to NOK if not set
     },
   });
 
@@ -117,6 +121,7 @@ export default function EventForm({ mode, initialData }: EventFormProps) {
             ...values,
             userId: user.id,
             eventDate: values.eventDate.getTime(),
+            currency: values.currency,
           });
 
           if (imageStorageId) {
@@ -147,6 +152,7 @@ export default function EventForm({ mode, initialData }: EventFormProps) {
               eventDate: values.eventDate.getTime(),
               price: values.price,
               totalTickets: values.totalTickets,
+              currency: values.currency,
             },
           });
 
@@ -301,47 +307,101 @@ export default function EventForm({ mode, initialData }: EventFormProps) {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="price"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Price per Ticket</FormLabel>
-                <FormControl>
-                  <div className="relative">
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2">
-                      kr
-                    </span>
-                    <Input
-                      type="number"
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="currency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Currency</FormLabel>
+                  <FormControl>
+                    <select
                       {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      className="pl-6"
-                    />
-                  </div>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      {Object.entries(CURRENCY_CONFIGS).map(([code, currency]) => (
+                        <option key={code} value={currency.code}>
+                          {currency.code} ({currency.symbol})
+                        </option>
+                      ))}
+                    </select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="price"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Price per Ticket</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2">
+                        {CURRENCY_CONFIGS[form.watch("currency") as keyof typeof CURRENCY_CONFIGS]?.symbol || ""}
+                      </span>
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        className="pl-6"
+                      />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           <FormField
-            control={form.control}
-            name="totalTickets"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Total Tickets Available</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    {...field}
-                    onChange={(e) => field.onChange(Number(e.target.value))}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+  control={form.control}
+  name="price"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Price per Ticket</FormLabel>
+      <FormControl>
+        <div className="relative">
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500">
+            {CURRENCY_CONFIGS[form.watch("currency") as keyof typeof CURRENCY_CONFIGS]?.symbol || ""}
+          </span>
+          <Input
+            type="number"
+            {...field}
+            onChange={(e) => field.onChange(Number(e.target.value))}
+            className="pl-6"
+            min={0}
+            step="0.01"
           />
+        </div>
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+
+<FormField
+  control={form.control}
+  name="totalTickets"
+  render={({ field }) => (
+    <FormItem>
+      <FormLabel>Total Tickets Available</FormLabel>
+      <FormControl>
+        <Input
+          type="number"
+          {...field}
+          onChange={(e) => field.onChange(Number(e.target.value))}
+          min={1}
+          step="1"
+        />
+      </FormControl>
+      <FormMessage />
+    </FormItem>
+  )}
+/>
+
 
           {/* Image Upload */}
           <div className="space-y-4">

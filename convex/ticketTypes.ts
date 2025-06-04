@@ -11,6 +11,13 @@ export const get = query({
   },
 });
 
+export const getById = query({
+  args: { ticketTypeId: v.id("ticketTypes") },
+  handler: async (ctx, { ticketTypeId }) => {
+    return await ctx.db.get(ticketTypeId);
+  },
+});
+
 export const create = mutation({
   args: {
     eventId: v.id("events"),

@@ -7,9 +7,11 @@ import { Button } from "./ui/button";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
 import TicketTypeForm from "./TicketTypeForm";
+import { formatPriceWithConversion } from "@/lib/currency";
 
 export default function TicketTypeList({ eventId }: { eventId: Id<"events"> }) {
   const ticketTypes = useQuery(api.ticketTypes.get, { eventId }) || [];
+  const event = useQuery(api.events.getById, { eventId });
   const [isAddingNew, setIsAddingNew] = useState(false);
 
   if (isAddingNew) {
@@ -51,7 +53,7 @@ export default function TicketTypeList({ eventId }: { eventId: Id<"events"> }) {
               <p className="text-sm text-gray-600">{ticketType.description}</p>
               <div className="mt-2 flex items-center gap-4 text-sm">
                 <span className="text-green-600 font-medium">
-                  kr {ticketType.price.toFixed(2)}
+                  {formatPriceWithConversion(ticketType.price, event?.currency)}
                 </span>
                 <span className="text-gray-600">
                   {ticketType.totalQuantity - ticketType.soldQuantity} available

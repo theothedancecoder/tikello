@@ -5,6 +5,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { Button } from "./ui/button";
 import { ShoppingCart } from "lucide-react";
+import { formatPriceWithConversion } from "@/lib/currency";
 
 interface TicketTypeDisplayProps {
   eventId: Id<"events">;
@@ -16,6 +17,7 @@ export default function TicketTypeDisplay({
   onSelectTicketType 
 }: TicketTypeDisplayProps) {
   const ticketTypes = useQuery(api.ticketTypes.get, { eventId }) || [];
+  const event = useQuery(api.events.getById, { eventId });
 
   if (ticketTypes.length === 0) {
     return null;
@@ -32,6 +34,7 @@ export default function TicketTypeDisplay({
 
           const isSoldOut = availability?.salesStatus === "sold_out";
           const isNotOnSale = availability?.salesStatus === "not_on_sale";
+          const isAvailable = availability?.salesStatus === "available";
 
           return (
             <div
@@ -62,7 +65,7 @@ export default function TicketTypeDisplay({
                         isSoldOut ? "text-gray-500" : "text-green-600"
                       }`}
                     >
-                      kr {ticketType.price.toFixed(2)}
+                      {formatPriceWithConversion(ticketType.price, event?.currency)}
                     </span>
                     <span className="text-sm text-gray-600">
                       {availability?.remaining || 0} of {ticketType.totalQuantity} available

@@ -10,9 +10,12 @@ import Spinner from "@/components/Spinner";
 import TicketTypeDisplay from "@/components/TicketTypeDisplay";
 import { SignInButton, useUser } from "@clerk/nextjs";
 import { useStorageUrl } from "@/lib/utils";
+import { formatPriceWithConversion } from "@/lib/currency";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import JoinQueue from "@/components/JoinQueue";
+import { createStripeCheckoutSessionForTicketType } from "@/actions/createStripeCheckoutSessionForTicketType";
+import { toast } from "sonner";
 
 export default function EventPage() {
   const { user } = useUser();
@@ -87,7 +90,7 @@ export default function EventPage() {
                           <Ticket className="w-5 h-5 mr-2 text-blue-600" />
                           <span className="text-sm font-medium">Price</span>
                         </div>
-                        <p className="text-gray-900">kr {event.price.toFixed(2)}</p>
+                        <p className="text-gray-900">{formatPriceWithConversion(event.price, event.currency)}</p>
                       </div>
 
                       <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
@@ -117,7 +120,7 @@ export default function EventPage() {
                 </div>
 
                 {/* Ticket Types Display */}
-                {event.hasMultiTierTickets && ticketTypes && ticketTypes.length > 0 && (
+                {ticketTypes && ticketTypes.length > 0 && (
                   <div className="bg-white border border-gray-200 rounded-lg p-6">
                     <TicketTypeDisplay eventId={eventId} />
                   </div>
@@ -127,20 +130,30 @@ export default function EventPage() {
               {/* Right Column - Ticket Purchase Card */}
               <div>
                 <div className="sticky top-8 space-y-4">
-                  {!event.hasMultiTierTickets && (
+                  {(!ticketTypes || ticketTypes.length === 0) && (
                     <EventCard eventId={eventId} />
                   )}
 
                   {!isPastEvent && !event.is_cancelled && (
                     user ? (
-                      event.hasMultiTierTickets ? (
+                      ticketTypes && ticketTypes.length > 0 ? (
                         <div className="bg-white border border-gray-200 rounded-lg p-6">
                           <TicketTypeDisplay 
                             eventId={eventId} 
-                            onSelectTicketType={(ticketTypeId) => {
-                              // TODO: Implement ticket type selection and purchase
-                              console.log('Selected ticket type:', ticketTypeId);
-                            }} 
+                            onSelectTicketType={async (ticketTypeId) => {
+                              try {
+                                const { sessionUrl } = await createStripeCheckoutSessionForTicketType({
+                                  eventId,
+                                  ticketTypeId,
+                                });
+                                if (sessionUrl) {
+                                  window.location.href = sessionUrl;
+                                }
+                              } catch (error) {
+                                console.error('Failed to create checkout session:', error);
+                                // You might want to show an error toast here
+                              }
+                            }}
                           />
                         </div>
                       ) : (

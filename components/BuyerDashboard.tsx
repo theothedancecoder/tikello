@@ -6,6 +6,8 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useState } from "react";
 import { FileSpreadsheet, FileText } from "lucide-react";
 import { formatPriceWithConversion, getCurrencyInfo } from "@/lib/currency";
+import { useUser } from "@clerk/nextjs";
+import Spinner from "./Spinner";
 
 // Function to download data as CSV
 function downloadAsCSV(buyers: any[]) {
@@ -17,7 +19,7 @@ function downloadAsCSV(buyers: any[]) {
     buyer.ticketType,
     buyer.status,
     new Date(buyer.purchasedAt).toLocaleString(),
-    buyer.amount ? formatPriceWithConversion(buyer.amount) : "-"
+    buyer.amount ? formatPriceWithConversion(buyer.amount, buyer.event?.currency) : "-"
   ]);
 
   const csvContent = [
@@ -73,7 +75,7 @@ function downloadAsPDF(buyers: any[]) {
                 <td>${buyer.ticketType}</td>
                 <td>${buyer.status}</td>
                 <td>${new Date(buyer.purchasedAt).toLocaleString()}</td>
-                <td>${buyer.amount ? formatPriceWithConversion(buyer.amount) : "-"}</td>
+                <td>${buyer.amount ? formatPriceWithConversion(buyer.amount, buyer.event?.currency) : "-"}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -91,16 +93,69 @@ function downloadAsPDF(buyers: any[]) {
 }
 
 export default function BuyerDashboard({ eventId }: { eventId: Id<"events"> }) {
+  const { user, isLoaded, isSignedIn } = useUser();
   const [search, setSearch] = useState("");
   const [ticketType, setTicketType] = useState("");
   const [status, setStatus] = useState<"valid" | "used" | "refunded" | "cancelled" | "">("");
+  
+  // Only query event if authenticated
+  const event = useQuery(api.events.getById, 
+    isLoaded && isSignedIn ? { eventId } : "skip"
+  );
 
-  const buyers = useQuery(api.buyers.getBuyersByEvent, {
-    eventId,
-    search: search || undefined,
-    ticketType: ticketType || undefined,
-    status: status === "" ? undefined : status as "valid" | "used" | "refunded" | "cancelled",
-  });
+  // Only query buyers if authenticated and event exists
+  const buyers = useQuery(
+    api.buyers.getBuyersByEvent,
+    isLoaded && isSignedIn && event && event.userId === user?.id ? {
+      eventId,
+      search: search || undefined,
+      ticketType: ticketType || undefined,
+      status: status === "" ? undefined : status as "valid" | "used" | "refunded" | "cancelled",
+    } : "skip"
+  );
+
+  // Show loading state while auth or event data is loading
+  if (!isLoaded || (isSignedIn && !event)) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-md">
+        <div className="flex items-center justify-center h-32">
+          <Spinner />
+        </div>
+      </div>
+    );
+  }
+
+  // Show sign in prompt if not authenticated
+  if (!isSignedIn || !user) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-md">
+        <div className="flex flex-col items-center justify-center h-32 gap-4">
+          <p className="text-gray-600">Please sign in to view the dashboard</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Verify event ownership and existence
+  if (!event) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-md">
+        <div className="flex flex-col items-center justify-center h-32 gap-4">
+          <p className="text-red-600">Event not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (event.userId !== user.id) {
+    return (
+      <div className="p-6 bg-white rounded-lg shadow-md">
+        <div className="flex flex-col items-center justify-center h-32 gap-4">
+          <p className="text-red-600">You do not have permission to view this dashboard</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-white rounded-lg shadow-md">
@@ -182,7 +237,7 @@ export default function BuyerDashboard({ eventId }: { eventId: Id<"events"> }) {
                   {new Date(buyer.purchasedAt).toLocaleString()}
                 </td>
                 <td className="border border-gray-300 px-4 py-2">
-                  {buyer.amount ? formatPriceWithConversion(buyer.amount) : "-"}
+                  {buyer.amount ? formatPriceWithConversion(buyer.amount, event?.currency) : "-"}
                 </td>
               </tr>
             ))

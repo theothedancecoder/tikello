@@ -83,18 +83,34 @@ export function convertPrice(nokAmount: number, targetCurrency: string): number 
   return nokAmount * rate;
 }
 
-// Format price with currency conversion
-export function formatPriceWithConversion(nokAmount: number, currencyConfig?: CurrencyConfig): string {
-  const config = currencyConfig || getUserCurrency();
+// Format price with currency conversion - now supports event currency
+export function formatPriceWithConversion(amount: number, eventCurrency?: string, targetCurrency?: CurrencyConfig): string {
+  const sourceCurrency = eventCurrency || 'NOK';
+  const config = targetCurrency || getUserCurrency();
   
-  // If already in NOK, just format
-  if (config.code === 'NOK') {
-    return formatPrice(nokAmount, config);
+  // If source and target currencies are the same, just format
+  if (config.code === sourceCurrency) {
+    return formatPrice(amount, config);
   }
   
-  // Convert and format
+  // Convert from source currency to NOK first (if needed), then to target currency
+  let nokAmount = amount;
+  if (sourceCurrency !== 'NOK') {
+    // Convert from source currency to NOK (reverse conversion)
+    const sourceRate = EXCHANGE_RATES[sourceCurrency] || 1.0;
+    nokAmount = amount / sourceRate;
+  }
+  
+  // Then convert from NOK to target currency
   const convertedAmount = convertPrice(nokAmount, config.code);
   return formatPrice(convertedAmount, config);
+}
+
+// Format price using event's original currency (no conversion)
+export function formatPriceInEventCurrency(amount: number, eventCurrency?: string): string {
+  const currency = eventCurrency || 'NOK';
+  const config = Object.values(CURRENCY_CONFIGS).find(c => c.code === currency) || CURRENCY_CONFIGS.NO;
+  return formatPrice(amount, config);
 }
 
 // Get currency display info for UI

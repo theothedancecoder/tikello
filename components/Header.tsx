@@ -1,11 +1,36 @@
+"use client";
+
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs'
 import Image from 'next/image'
 import Link from 'next/link'
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import SearchBar from './SearchBar'
 import CurrencySelector from './CurrencySelector'
 
 const Header = () => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className='border-b'>
+        <div className='flex flex-col lg:flex-row items-center gap-4 p-4'>
+          <div className='flex items-center justify-between w-full lg:w-auto'>
+            <Link href='/' className='font-bold shrink-0'>
+              <Image src='/images/logo.png' width={100} height={100}
+                alt='logo' className='w-24 lg:w-28'/>
+            </Link>
+          </div>
+          <div className='w-full lg:max-w-2xl'>
+            <SearchBar/>
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className='border-b'>
          <div className='flex flex-col lg:flex-row items-center gap-4 p-4'>

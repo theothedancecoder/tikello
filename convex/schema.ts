@@ -13,6 +13,7 @@ export default defineSchema({
     imageStorageId: v.optional(v.id("_storage")),
     is_cancelled: v.optional(v.boolean()),
     hasMultiTierTickets: v.optional(v.boolean()), // Flag to indicate if event uses new ticket system
+    currency: v.optional(v.string()), // Currency code for the event (e.g., "NOK", "USD", "GBP")
   }),
   
   ticketTypes: defineTable({

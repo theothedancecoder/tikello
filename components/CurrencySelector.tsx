@@ -6,25 +6,47 @@ import { CURRENCY_CONFIGS, getUserCurrency, type CurrencyConfig } from "@/lib/cu
 import { saveToLocalStorage, getFromLocalStorage, isCookieAllowed } from "@/lib/cookies";
 
 export default function CurrencySelector() {
-  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyConfig>(getUserCurrency());
+  // Start with NOK during SSR to avoid hydration mismatch
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyConfig>(CURRENCY_CONFIGS.NO);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    // Load saved currency preference from localStorage (only if cookies allowed)
-    const saved = getFromLocalStorage('preferred-currency');
+    // After hydration, load the user's preferred currency
+    let saved = getFromLocalStorage('preferred-currency');
+    
+    // If preference cookies aren't allowed, try sessionStorage as fallback
+    if (!saved && typeof window !== 'undefined') {
+      try {
+        const sessionSaved = sessionStorage.getItem('preferred-currency');
+        if (sessionSaved) {
+          saved = JSON.parse(sessionSaved);
+        }
+      } catch (error) {
+        console.error('Failed to parse session currency preference');
+      }
+    }
+    
     if (saved) {
       setSelectedCurrency(saved);
+    } else {
+      // If no saved preference, detect from browser
+      setSelectedCurrency(getUserCurrency());
     }
   }, []);
 
   const handleCurrencyChange = (currency: CurrencyConfig) => {
     setSelectedCurrency(currency);
     
-    // Only save to localStorage if preference cookies are allowed
+    // Try to save to localStorage first (if preference cookies are allowed)
     const saved = saveToLocalStorage('preferred-currency', currency);
     if (!saved) {
-      // Show a message that preferences won't be saved
-      console.log('Currency preference not saved - preference cookies disabled');
+      // If localStorage isn't allowed, save to sessionStorage as fallback
+      try {
+        sessionStorage.setItem('preferred-currency', JSON.stringify(currency));
+        console.log('Currency preference saved to session (preference cookies disabled)');
+      } catch (error) {
+        console.error('Failed to save currency preference to session:', error);
+      }
     }
     
     setIsOpen(false);
