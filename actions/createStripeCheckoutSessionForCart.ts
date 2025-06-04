@@ -6,21 +6,26 @@ import { Id } from "@/convex/_generated/dataModel";
 import { auth } from "@clerk/nextjs/server";
 import { getConvexClient } from "@/lib/convex";
 import baseUrl from "@/lib/baseUrl";
-import { CartItem } from "@/components/cart/CartContext";
+import { CartItem, BuyerInfo } from "@/components/cart/CartContext";
 
 export type StripeCheckoutMetaDataForCart = {
   eventId: Id<"events">;
   userId: string;
   cartItems: string; // JSON stringified cart items
   discountCodeId?: Id<"discountCodes">;
+  buyerName: string;
+  buyerEmail: string;
+  buyerPhone?: string;
 };
 
 export async function createStripeCheckoutSessionForCart({
   cartItems,
   discountCodeId,
+  buyerInfo,
 }: {
   cartItems: CartItem[];
   discountCodeId?: Id<"discountCodes">;
+  buyerInfo: BuyerInfo;
 }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Not authenticated");
@@ -99,6 +104,9 @@ export async function createStripeCheckoutSessionForCart({
       price: item.price,
     }))),
     discountCodeId,
+    buyerName: buyerInfo.fullName,
+    buyerEmail: buyerInfo.email,
+    buyerPhone: buyerInfo.phone,
   };
 
   // Create line items for Stripe

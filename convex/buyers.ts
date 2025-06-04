@@ -41,18 +41,19 @@ export const getBuyersByEvent = query({
 
     // Fetch users and ticket types in parallel
     const [users, ticketTypes] = await Promise.all([
-      ctx.db
-        .query("users")
-        .filter((q) => 
-          q.or(...userIds.map(id => q.eq(q.field("userId"), id)))
-        )
-        .collect(),
-      ctx.db
-        .query("ticketTypes")
-        .filter((q) => 
-          q.or(...ticketTypeIds.map(id => q.eq(q.field("_id"), id)))
-        )
-        .collect(),
+      userIds.length > 0
+        ? ctx.db
+            .query("users")
+            .withIndex("by_user_id")
+            .filter((q) => q.or(...userIds.map(id => q.eq(q.field("userId"), id))))
+            .collect()
+        : Promise.resolve([]),
+      ticketTypeIds.length > 0
+        ? ctx.db
+            .query("ticketTypes")
+            .filter((q) => q.or(...ticketTypeIds.map(id => q.eq(q.field("_id"), id))))
+            .collect()
+        : Promise.resolve([]),
     ]);
 
     // Create maps for faster lookups

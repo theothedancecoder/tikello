@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useCallback, useState } from "react";
-import { CartContext, CartItem, DiscountCode } from "./CartContext";
+import { CartContext, CartItem, DiscountCode, BuyerInfo } from "./CartContext";
 import { Id } from "@/convex/_generated/dataModel";
 
 interface CartProviderProps {
@@ -11,6 +11,7 @@ interface CartProviderProps {
 export function CartProvider({ children }: CartProviderProps) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [discountCode, setDiscountCode] = useState<DiscountCode>();
+  const [buyerInfo, setBuyerInfo] = useState<BuyerInfo>();
 
   const addToCart = useCallback((item: Omit<CartItem, 'quantity'>, quantity: number) => {
     setItems(currentItems => {
@@ -46,6 +47,11 @@ export function CartProvider({ children }: CartProviderProps) {
   const clearCart = useCallback(() => {
     setItems([]);
     setDiscountCode(undefined);
+    setBuyerInfo(undefined);
+  }, []);
+
+  const setBuyerInfoCallback = useCallback((info: BuyerInfo) => {
+    setBuyerInfo(info);
   }, []);
 
   const getTotalPrice = useCallback(() => {
@@ -81,6 +87,7 @@ export function CartProvider({ children }: CartProviderProps) {
       value={{
         items,
         discountCode,
+        buyerInfo,
         addToCart,
         removeFromCart,
         updateQuantity,
@@ -89,6 +96,7 @@ export function CartProvider({ children }: CartProviderProps) {
         getTotalItems,
         applyDiscount,
         removeDiscount,
+        setBuyerInfo: setBuyerInfoCallback,
         getDiscountAmount,
         getFinalPrice,
       }}

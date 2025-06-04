@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -30,24 +30,43 @@ const TICKET_TYPES = [
 
 interface TicketTypeFormProps {
   eventId: Id<"events">;
+  ticketTypeId?: Id<"ticketTypes"> | null;
   onComplete?: () => void;
 }
 
-export default function TicketTypeForm({ eventId, onComplete }: TicketTypeFormProps) {
+export default function TicketTypeForm({ eventId, ticketTypeId, onComplete }: TicketTypeFormProps) {
   const createTicketType = useMutation(api.ticketTypes.create);
   const updateTicketType = useMutation(api.ticketTypes.update);
   const existingTicketTypes = useQuery(api.ticketTypes.get, { eventId }) || [];
 
-  const [ticketTypes, setTicketTypes] = useState<TicketType[]>([
-    {
-      name: "",
-      description: "",
-      price: 0,
-      totalQuantity: 0,
-      type: "other",
-      sortOrder: existingTicketTypes.length,
-    },
-  ]);
+  const existingTicketType = ticketTypeId ? useQuery(api.ticketTypes.getById, { ticketTypeId }) : null;
+
+  const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
+
+  // Initialize form with existing data or empty state
+  useEffect(() => {
+    if (existingTicketType) {
+      setTicketTypes([{
+        name: existingTicketType.name,
+        description: existingTicketType.description || "",
+        price: existingTicketType.price,
+        totalQuantity: existingTicketType.totalQuantity,
+        type: existingTicketType.type as TicketType["type"],
+        startDate: existingTicketType.startDate,
+        endDate: existingTicketType.endDate,
+        sortOrder: existingTicketType.sortOrder || 0,
+      }]);
+    } else {
+      setTicketTypes([{
+        name: "",
+        description: "",
+        price: 0,
+        totalQuantity: 0,
+        type: "other",
+        sortOrder: existingTicketTypes.length,
+      }]);
+    }
+  }, [existingTicketType, existingTicketTypes.length]);
 
   const addTicketType = () => {
     setTicketTypes([
@@ -93,29 +112,55 @@ export default function TicketTypeForm({ eventId, onComplete }: TicketTypeFormPr
       (tt) => tt.name && tt.price > 0 && tt.totalQuantity > 0
     );
 
-    // Create ticket types
-    for (const ticketType of validTicketTypes) {
-      await createTicketType({
-        eventId,
-        ...ticketType,
+    if (ticketTypeId && validTicketTypes.length > 0) {
+      // Update existing ticket type
+      const ticketType = validTicketTypes[0];
+      await updateTicketType({
+        ticketTypeId,
+        updates: {
+          name: ticketType.name,
+          description: ticketType.description,
+          price: ticketType.price,
+          totalQuantity: ticketType.totalQuantity,
+          type: ticketType.type,
+          startDate: ticketType.startDate,
+          endDate: ticketType.endDate,
+          sortOrder: ticketType.sortOrder,
+        },
       });
+    } else {
+      // Create new ticket types
+      for (const ticketType of validTicketTypes) {
+        await createTicketType({
+          eventId,
+          ...ticketType,
+        });
+      }
+    }
+
+    if (onComplete) {
+      onComplete();
     }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Ticket Types</h3>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={addTicketType}
-          className="flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Add Ticket Type
-        </Button>
+        <h3 className="text-lg font-medium">
+          {ticketTypeId ? "Edit Ticket Type" : "Ticket Types"}
+        </h3>
+        {!ticketTypeId && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addTicketType}
+            className="flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Ticket Type
+          </Button>
+        )}
       </div>
 
       <div className="space-y-6">
@@ -237,15 +282,17 @@ export default function TicketTypeForm({ eventId, onComplete }: TicketTypeFormPr
                 </div>
               </div>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => removeTicketType(index)}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              {!ticketTypeId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeTicketType(index)}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
             </div>
           </div>
         ))}
@@ -253,7 +300,7 @@ export default function TicketTypeForm({ eventId, onComplete }: TicketTypeFormPr
 
       {ticketTypes.length > 0 && (
         <Button type="button" onClick={handleSubmit}>
-          Save Ticket Types
+          {ticketTypeId ? "Update Ticket Type" : "Save Ticket Types"}
         </Button>
       )}
     </div>

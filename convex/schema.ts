@@ -76,6 +76,7 @@ export default defineSchema({
     userId: v.string(),
     email: v.string(),
     name: v.string(),
+    phone: v.optional(v.string()),
     stripeConnectId: v.optional(v.string()),
   }).index("by_user_id", ["userId"]),
 });

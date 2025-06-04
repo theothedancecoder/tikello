@@ -11,6 +11,7 @@ import { createStripeCheckoutSessionForCart } from "@/actions/createStripeChecko
 import { api } from "@/convex/_generated/api";
 import { useQuery, useMutation } from "convex/react";
 import { Id } from "@/convex/_generated/dataModel";
+import BuyerInfoForm from "@/components/BuyerInfoForm";
 
 interface DiscountCode {
   _id: Id<"discountCodes">;
@@ -34,11 +35,13 @@ export default function Cart({ currency = "nok" }: CartProps) {
     applyDiscount,
     removeDiscount,
     getDiscountAmount,
-    getFinalPrice
+    getFinalPrice,
+    buyerInfo
   } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [discountInput, setDiscountInput] = useState("");
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
+  const [showBuyerForm, setShowBuyerForm] = useState(false);
 
   const handleQuantityChange = (ticketTypeId: string, newQuantity: number) => {
     updateQuantity(ticketTypeId as any, newQuantity);
@@ -97,9 +100,17 @@ export default function Cart({ currency = "nok" }: CartProps) {
     }
   };
 
-  const handleCheckout = async () => {
+  const handleInitialCheckout = () => {
     if (items.length === 0) {
       toast.error("Your cart is empty");
+      return;
+    }
+    setShowBuyerForm(true);
+  };
+
+  const handleCheckout = async () => {
+    if (!buyerInfo) {
+      toast.error("Please provide buyer information");
       return;
     }
 
@@ -108,6 +119,7 @@ export default function Cart({ currency = "nok" }: CartProps) {
       const { sessionUrl } = await createStripeCheckoutSessionForCart({
         cartItems: items,
         discountCodeId: discountCode?._id,
+        buyerInfo,
       });
       
       if (sessionUrl) {
@@ -276,13 +288,26 @@ export default function Cart({ currency = "nok" }: CartProps) {
           </div>
         </div>
         
-        <Button
-          onClick={handleCheckout}
-          disabled={isCheckingOut}
-          className="w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900"
-        >
-          {isCheckingOut ? "Processing..." : "Proceed to Checkout"}
-        </Button>
+        {showBuyerForm ? (
+          <div className="space-y-4">
+            <BuyerInfoForm onComplete={handleCheckout} />
+            <Button
+              variant="outline"
+              onClick={() => setShowBuyerForm(false)}
+              className="w-full"
+            >
+              Back to Cart
+            </Button>
+          </div>
+        ) : (
+          <Button
+            onClick={handleInitialCheckout}
+            disabled={isCheckingOut}
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-800 hover:from-blue-700 hover:to-blue-900"
+          >
+            {isCheckingOut ? "Processing..." : "Proceed to Checkout"}
+          </Button>
+        )}
       </div>
     </div>
   );

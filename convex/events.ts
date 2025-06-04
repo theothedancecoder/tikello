@@ -699,8 +699,13 @@ export const purchaseCartTickets = mutation({
       amount: v.number(),
     }),
     discountCodeId: v.optional(v.id("discountCodes")),
+    buyerInfo: v.optional(v.object({
+      fullName: v.string(),
+      email: v.string(),
+      phone: v.optional(v.string()),
+    })),
   },
-  handler: async (ctx, { eventId, userId, cartItems, paymentInfo, discountCodeId }) => {
+  handler: async (ctx, { eventId, userId, cartItems, paymentInfo, discountCodeId, buyerInfo }) => {
     console.log("Starting purchaseCartTickets handler", {
       eventId,
       discountCodeId,
@@ -716,6 +721,32 @@ export const purchaseCartTickets = mutation({
 
     if (event.is_cancelled) {
       throw new Error("Event is no longer active");
+    }
+
+    // Store buyer information if provided
+    if (buyerInfo) {
+      // Check if user exists, if not create/update with buyer info
+      const existingUser = await ctx.db
+        .query("users")
+        .withIndex("by_user_id", (q) => q.eq("userId", userId))
+        .first();
+
+      if (existingUser) {
+        // Update existing user with buyer info
+        await ctx.db.patch(existingUser._id, {
+          name: buyerInfo.fullName,
+          email: buyerInfo.email,
+          phone: buyerInfo.phone,
+        });
+      } else {
+        // Create new user record with buyer info
+        await ctx.db.insert("users", {
+          userId,
+          name: buyerInfo.fullName,
+          email: buyerInfo.email,
+          phone: buyerInfo.phone,
+        });
+      }
     }
 
     // Verify all ticket types and check availability

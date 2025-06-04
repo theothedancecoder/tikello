@@ -2,29 +2,56 @@
 
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { Button } from "./ui/button";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { useState } from "react";
 import TicketTypeForm from "./TicketTypeForm";
 import { formatPriceWithConversion } from "@/lib/currency";
+import { toast } from "sonner";
 
 export default function TicketTypeList({ eventId }: { eventId: Id<"events"> }) {
   const ticketTypes = useQuery(api.ticketTypes.get, { eventId }) || [];
   const event = useQuery(api.events.getById, { eventId });
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [editingTicketType, setEditingTicketType] = useState<Id<"ticketTypes"> | null>(null);
+  const deleteTicketType = useMutation(api.ticketTypes.deleteTicketType);
+  
+  const handleDelete = async (ticketTypeId: Id<"ticketTypes">) => {
+    try {
+      await deleteTicketType({ ticketTypeId });
+      toast.success("Ticket type deleted successfully");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete ticket type");
+    }
+  };
+
+  const handleEdit = (ticketTypeId: Id<"ticketTypes">) => {
+    setEditingTicketType(ticketTypeId);
+    setIsAddingNew(true);
+  };
 
   if (isAddingNew) {
     return (
       <div>
         <Button
           variant="ghost"
-          onClick={() => setIsAddingNew(false)}
+          onClick={() => {
+            setIsAddingNew(false);
+            setEditingTicketType(null);
+          }}
           className="mb-4"
         >
           ← Back to List
         </Button>
-        <TicketTypeForm eventId={eventId} onComplete={() => setIsAddingNew(false)} />
+        <TicketTypeForm 
+          eventId={eventId} 
+          ticketTypeId={editingTicketType}
+          onComplete={() => {
+            setIsAddingNew(false);
+            setEditingTicketType(null);
+          }} 
+        />
       </div>
     );
   }
@@ -72,10 +99,28 @@ export default function TicketTypeList({ eventId }: { eventId: Id<"events"> }) {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" className="text-blue-600">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-blue-600"
+                onClick={() => handleEdit(ticketType._id)}
+              >
                 <Edit className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="text-red-600">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-red-600"
+                onClick={async () => {
+                  if (window.confirm('Are you sure you want to delete this ticket type?')) {
+                    try {
+                      await handleDelete(ticketType._id);
+                    } catch (error) {
+                      console.error('Failed to delete ticket type:', error);
+                    }
+                  }
+                }}
+              >
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>

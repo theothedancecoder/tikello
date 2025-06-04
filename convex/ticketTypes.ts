@@ -135,3 +135,18 @@ export const incrementSoldQuantity = mutation({
     });
   },
 });
+
+export const deleteTicketType = mutation({
+  args: { ticketTypeId: v.id("ticketTypes") },
+  handler: async (ctx, { ticketTypeId }) => {
+    const ticketType = await ctx.db.get(ticketTypeId);
+    if (!ticketType) throw new Error("Ticket type not found");
+
+    // Check if any tickets have been sold
+    if (ticketType.soldQuantity > 0) {
+      throw new Error("Cannot delete ticket type with sold tickets");
+    }
+
+    await ctx.db.delete(ticketTypeId);
+  },
+});

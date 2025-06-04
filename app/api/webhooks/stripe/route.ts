@@ -6,6 +6,7 @@ import Stripe from "stripe";
 import { StripeCheckoutMetaData } from "@/actions/createStripeCheckoutSession";
 import { StripeCheckoutMetaDataForTicketType } from "@/actions/createStripeCheckoutSessionForTicketType";
 import { StripeCheckoutMetaDataForCart } from "@/actions/createStripeCheckoutSessionForCart";
+import { clerkClient } from "@clerk/nextjs/server";
 
 
 export async function POST(req: Request) {
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
       // Check if this is a cart purchase
       if ('cartItems' in metadata) {
         console.log("Processing cart purchase");
-        const cartMetadata = metadata as StripeCheckoutMetaDataForCart;
+        const cartMetadata = metadata as unknown as StripeCheckoutMetaDataForCart;
         console.log("Cart metadata:", cartMetadata);
         
         try {
@@ -75,6 +76,11 @@ export async function POST(req: Request) {
               amount: session.amount_total ?? 0,
             },
             discountCodeId: cartMetadata.discountCodeId,
+            buyerInfo: cartMetadata.buyerName ? {
+              fullName: cartMetadata.buyerName,
+              email: cartMetadata.buyerEmail,
+              phone: cartMetadata.buyerPhone,
+            } : undefined,
           });
           console.log("Purchase cart tickets mutation completed:", result);
         } catch (parseError) {
@@ -86,6 +92,7 @@ export async function POST(req: Request) {
       // Check if this is a single multi-tier ticket purchase
       else if ('ticketTypeId' in metadata) {
         const ticketTypeMetadata = metadata as StripeCheckoutMetaDataForTicketType;
+        
         const result = await convex.mutation(api.events.purchaseTicketType, {
           eventId: ticketTypeMetadata.eventId,
           userId: ticketTypeMetadata.userId,
@@ -99,6 +106,7 @@ export async function POST(req: Request) {
       } else {
         // Handle regular ticket purchase
         const regularMetadata = metadata as StripeCheckoutMetaData;
+        
         const result = await convex.mutation(api.events.purchaseTicket, {
           eventId: regularMetadata.eventId,
           userId: regularMetadata.userId,

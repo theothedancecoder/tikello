@@ -18,14 +18,22 @@ export interface DiscountCode {
   percentage: number;
 }
 
+export interface BuyerInfo {
+  fullName: string;
+  email: string;
+  phone?: string;
+}
+
 export interface CartContextType {
   items: CartItem[];
   discountCode?: DiscountCode;
+  buyerInfo?: BuyerInfo;
   addToCart: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
   removeFromCart: (ticketTypeId: Id<"ticketTypes">) => void;
   updateQuantity: (ticketTypeId: Id<"ticketTypes">, quantity: number) => void;
   applyDiscount: (discount: DiscountCode) => void;
   removeDiscount: () => void;
+  setBuyerInfo: (info: BuyerInfo) => void;
   clearCart: () => void;
   getTotalPrice: () => number;
   getDiscountAmount: () => number;
