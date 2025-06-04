@@ -46,19 +46,41 @@ export async function POST(req: Request) {
     try {
       // Check if this is a cart purchase
       if ('cartItems' in metadata) {
+        console.log("Processing cart purchase");
         const cartMetadata = metadata as StripeCheckoutMetaDataForCart;
-        const cartItems = JSON.parse(cartMetadata.cartItems);
+        console.log("Cart metadata:", cartMetadata);
         
-        const result = await convex.mutation(api.events.purchaseCartTickets, {
-          eventId: cartMetadata.eventId,
-          userId: cartMetadata.userId,
-          cartItems: cartItems,
-          paymentInfo: {
-            paymentIntentId: session.payment_intent as string,
-            amount: session.amount_total ?? 0,
-          },
-        });
-        console.log("Purchase cart tickets mutation completed:", result);
+        try {
+          const cartItems = JSON.parse(cartMetadata.cartItems);
+          console.log("Parsed cart items:", cartItems);
+          
+          // Validate cart items structure
+          if (!Array.isArray(cartItems)) {
+            throw new Error("Cart items must be an array");
+          }
+          
+          // Ensure each cart item has the required fields
+          cartItems.forEach((item, index) => {
+            if (!item.ticketTypeId || !item.quantity || !item.price) {
+              throw new Error(`Invalid cart item at index ${index}`);
+            }
+          });
+          
+          const result = await convex.mutation(api.events.purchaseCartTickets, {
+            eventId: cartMetadata.eventId,
+            userId: cartMetadata.userId,
+            cartItems: cartItems,
+            paymentInfo: {
+              paymentIntentId: session.payment_intent as string,
+              amount: session.amount_total ?? 0,
+            },
+          });
+          console.log("Purchase cart tickets mutation completed:", result);
+        } catch (parseError) {
+          console.error("Failed to parse cart items:", parseError);
+          console.error("Raw cartItems string:", cartMetadata.cartItems);
+          throw new Error(`Failed to parse cart items: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+        }
       }
       // Check if this is a single multi-tier ticket purchase
       else if ('ticketTypeId' in metadata) {
