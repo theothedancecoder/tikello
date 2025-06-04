@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import JoinQueue from "@/components/JoinQueue";
 import { createStripeCheckoutSessionForTicketType } from "@/actions/createStripeCheckoutSessionForTicketType";
 import { toast } from "sonner";
+import Cart from "@/components/cart/Cart";
 
 export default function EventPage() {
   const { user } = useUser();
@@ -137,25 +138,12 @@ export default function EventPage() {
                   {!isPastEvent && !event.is_cancelled && (
                     user ? (
                       ticketTypes && ticketTypes.length > 0 ? (
-                        <div className="bg-white border border-gray-200 rounded-lg p-6">
-                          <TicketTypeDisplay 
-                            eventId={eventId} 
-                            onSelectTicketType={async (ticketTypeId) => {
-                              try {
-                                const { sessionUrl } = await createStripeCheckoutSessionForTicketType({
-                                  eventId,
-                                  ticketTypeId,
-                                });
-                                if (sessionUrl) {
-                                  window.location.href = sessionUrl;
-                                }
-                              } catch (error) {
-                                console.error('Failed to create checkout session:', error);
-                                // You might want to show an error toast here
-                              }
-                            }}
-                          />
-                        </div>
+                        <>
+                          <div className="bg-white border border-gray-200 rounded-lg p-6">
+                            <TicketTypeDisplay eventId={eventId} />
+                          </div>
+                          <Cart currency={event.currency} />
+                        </>
                       ) : (
                         <JoinQueue eventId={eventId} userId={user.id} />
                       )

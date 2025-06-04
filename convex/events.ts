@@ -591,3 +591,99 @@ export const enableMultiTierTickets = mutation({
     return { success: true };
   },
 });
+
+// Purchase multiple ticket types from cart
+export const purchaseCartTickets = mutation({
+  args: {
+    eventId: v.id("events"),
+    userId: v.string(),
+    cartItems: v.array(v.object({
+      ticketTypeId: v.id("ticketTypes"),
+      quantity: v.number(),
+      price: v.number(),
+    })),
+    paymentInfo: v.object({
+      paymentIntentId: v.string(),
+      amount: v.number(),
+    }),
+  },
+  handler: async (ctx, { eventId, userId, cartItems, paymentInfo }) => {
+    console.log("Starting purchaseCartTickets handler", {
+      eventId,
+      userId,
+      cartItems,
+    });
+
+    // Verify event exists and is active
+    const event = await ctx.db.get(eventId);
+    if (!event) {
+      throw new Error("Event not found");
+    }
+
+    if (event.is_cancelled) {
+      throw new Error("Event is no longer active");
+    }
+
+    // Verify all ticket types and check availability
+    const ticketTypes = await Promise.all(
+      cartItems.map(async (item) => {
+        const ticketType = await ctx.db.get(item.ticketTypeId);
+        if (!ticketType) {
+          throw new Error(`Ticket type ${item.ticketTypeId} not found`);
+        }
+
+        if (ticketType.eventId !== eventId) {
+          throw new Error("Ticket type does not belong to this event");
+        }
+
+        // Check availability
+        if (ticketType.soldQuantity + item.quantity > ticketType.totalQuantity) {
+          throw new Error(`Not enough ${ticketType.name} tickets available`);
+        }
+
+        // Check if ticket type is enabled and within sales window
+        const now = Date.now();
+        const isWithinSalesWindow =
+          (!ticketType.startDate || ticketType.startDate <= now) &&
+          (!ticketType.endDate || ticketType.endDate > now);
+
+        if (!ticketType.isEnabled || !isWithinSalesWindow) {
+          throw new Error(`${ticketType.name} is not available for purchase`);
+        }
+
+        return ticketType;
+      })
+    );
+
+    try {
+      // Create tickets for each cart item
+      for (let i = 0; i < cartItems.length; i++) {
+        const item = cartItems[i];
+        const ticketType = ticketTypes[i];
+
+        // Create multiple tickets based on quantity
+        for (let j = 0; j < item.quantity; j++) {
+          await ctx.db.insert("tickets", {
+            eventId,
+            userId,
+            purchasedAt: Date.now(),
+            status: TICKET_STATUS.VALID,
+            paymentIntentId: paymentInfo.paymentIntentId,
+            amount: item.price, // Individual ticket price
+            ticketTypeId: item.ticketTypeId,
+          });
+        }
+
+        // Update sold quantity for each ticket type
+        await ctx.db.patch(item.ticketTypeId, {
+          soldQuantity: ticketType.soldQuantity + item.quantity,
+        });
+      }
+
+      console.log("Purchase cart tickets completed successfully");
+    } catch (error) {
+      console.error("Failed to complete cart purchase:", error);
+      throw new Error(`Failed to complete cart purchase: ${error}`);
+    }
+  },
+});

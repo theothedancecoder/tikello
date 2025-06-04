@@ -8,6 +8,7 @@ import SyncUserWithConvex from "@/components/SyncUserWithConvex";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import CookieConsent from "@/components/CookieConsent";
 import { Toaster } from "sonner";
+import { CartProvider } from "@/components/cart/CartProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -39,15 +40,17 @@ export default function RootLayout({
         >
           
           <ConvexClientProvider>
-            <div className="min-h-screen flex flex-col">
-              <Header/>
-              <SyncUserWithConvex/>
-              <main className="flex-grow">
-                {children}
-              </main>
-              <CookieConsent/>
-              <Toaster/>
-            </div>
+            <CartProvider>
+              <div className="min-h-screen flex flex-col">
+                <Header/>
+                <SyncUserWithConvex/>
+                <main className="flex-grow">
+                  {children}
+                </main>
+                <CookieConsent/>
+                <Toaster/>
+              </div>
+            </CartProvider>
           </ConvexClientProvider>
         </ClerkProvider>
        

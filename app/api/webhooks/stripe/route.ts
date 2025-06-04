@@ -5,6 +5,7 @@ import { api } from "@/convex/_generated/api";
 import Stripe from "stripe";
 import { StripeCheckoutMetaData } from "@/actions/createStripeCheckoutSession";
 import { StripeCheckoutMetaDataForTicketType } from "@/actions/createStripeCheckoutSessionForTicketType";
+import { StripeCheckoutMetaDataForCart } from "@/actions/createStripeCheckoutSessionForCart";
 
 
 export async function POST(req: Request) {
@@ -43,8 +44,24 @@ export async function POST(req: Request) {
     console.log("Convex client:", convex);
 
     try {
-      // Check if this is a multi-tier ticket purchase
-      if ('ticketTypeId' in metadata) {
+      // Check if this is a cart purchase
+      if ('cartItems' in metadata) {
+        const cartMetadata = metadata as StripeCheckoutMetaDataForCart;
+        const cartItems = JSON.parse(cartMetadata.cartItems);
+        
+        const result = await convex.mutation(api.events.purchaseCartTickets, {
+          eventId: cartMetadata.eventId,
+          userId: cartMetadata.userId,
+          cartItems: cartItems,
+          paymentInfo: {
+            paymentIntentId: session.payment_intent as string,
+            amount: session.amount_total ?? 0,
+          },
+        });
+        console.log("Purchase cart tickets mutation completed:", result);
+      }
+      // Check if this is a single multi-tier ticket purchase
+      else if ('ticketTypeId' in metadata) {
         const ticketTypeMetadata = metadata as StripeCheckoutMetaDataForTicketType;
         const result = await convex.mutation(api.events.purchaseTicketType, {
           eventId: ticketTypeMetadata.eventId,

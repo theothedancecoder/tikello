@@ -3,8 +3,7 @@
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { Button } from "./ui/button";
-import { ShoppingCart } from "lucide-react";
+import AddToCartButton from "./cart/AddToCartButton";
 import { formatPriceWithConversion } from "@/lib/currency";
 
 interface TicketTypeDisplayProps {
@@ -84,23 +83,14 @@ export default function TicketTypeDisplay({
                 </div>
 
                 <div className="ml-4">
-                  {isSoldOut ? (
-                    <div className="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium">
-                      Sold Out
-                    </div>
-                  ) : isNotOnSale ? (
-                    <div className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium">
-                      Not on Sale
-                    </div>
-                  ) : (
-                    <Button
-                      onClick={() => onSelectTicketType?.(ticketType._id)}
-                      className="flex items-center gap-2"
-                    >
-                      <ShoppingCart className="w-4 h-4" />
-                      Select
-                    </Button>
-                  )}
+                  <AddToCartButton
+                    ticketTypeId={ticketType._id}
+                    eventId={eventId}
+                    ticketTypeName={ticketType.name}
+                    price={ticketType.price}
+                    maxQuantity={availability?.remaining || 0}
+                    disabled={isSoldOut || isNotOnSale}
+                  />
                 </div>
               </div>
             </div>
