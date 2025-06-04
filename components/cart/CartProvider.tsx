@@ -1,66 +1,96 @@
 "use client";
 
-import { ReactNode, useState } from "react";
-import { CartContext, CartItem } from "./CartContext";
+import { ReactNode, useCallback, useState } from "react";
+import { CartContext, CartItem, DiscountCode } from "./CartContext";
 import { Id } from "@/convex/_generated/dataModel";
 
-export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+interface CartProviderProps {
+  children: ReactNode;
+}
 
-  const addToCart = (item: Omit<CartItem, 'quantity'>, quantity: number) => {
+export function CartProvider({ children }: CartProviderProps) {
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [discountCode, setDiscountCode] = useState<DiscountCode>();
+
+  const addToCart = useCallback((item: Omit<CartItem, 'quantity'>, quantity: number) => {
     setItems(currentItems => {
       const existingItem = currentItems.find(i => i.ticketTypeId === item.ticketTypeId);
       
       if (existingItem) {
-        // Update quantity if item exists, respecting maxQuantity
-        return currentItems.map(i => 
+        const newQuantity = Math.min(existingItem.quantity + quantity, item.maxQuantity);
+        return currentItems.map(i =>
           i.ticketTypeId === item.ticketTypeId
-            ? { ...i, quantity: Math.min(i.quantity + quantity, i.maxQuantity) }
+            ? { ...i, quantity: newQuantity }
             : i
         );
       }
 
-      // Add new item
-      return [...currentItems, { ...item, quantity: Math.min(quantity, item.maxQuantity) }];
+      return [...currentItems, { ...item, quantity }];
     });
-  };
+  }, []);
 
-  const removeFromCart = (ticketTypeId: Id<"ticketTypes">) => {
+  const removeFromCart = useCallback((ticketTypeId: Id<"ticketTypes">) => {
     setItems(currentItems => currentItems.filter(item => item.ticketTypeId !== ticketTypeId));
-  };
+  }, []);
 
-  const updateQuantity = (ticketTypeId: Id<"ticketTypes">, quantity: number) => {
+  const updateQuantity = useCallback((ticketTypeId: Id<"ticketTypes">, quantity: number) => {
     setItems(currentItems =>
       currentItems.map(item =>
         item.ticketTypeId === ticketTypeId
-          ? { ...item, quantity: Math.min(Math.max(0, quantity), item.maxQuantity) }
+          ? { ...item, quantity: Math.min(quantity, item.maxQuantity) }
           : item
-      ).filter(item => item.quantity > 0)
+      )
     );
-  };
+  }, []);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setItems([]);
-  };
+    setDiscountCode(undefined);
+  }, []);
 
-  const getTotalPrice = () => {
+  const getTotalPrice = useCallback(() => {
     return items.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
+  }, [items]);
 
-  const getTotalItems = () => {
+  const getTotalItems = useCallback(() => {
     return items.reduce((total, item) => total + item.quantity, 0);
-  };
+  }, [items]);
+
+  const applyDiscount = useCallback((discount: DiscountCode) => {
+    setDiscountCode(discount);
+  }, []);
+
+  const removeDiscount = useCallback(() => {
+    setDiscountCode(undefined);
+  }, []);
+
+  const getDiscountAmount = useCallback(() => {
+    if (!discountCode) return 0;
+    const totalPrice = getTotalPrice();
+    return Math.round((totalPrice * discountCode.percentage) / 100);
+  }, [discountCode, getTotalPrice]);
+
+  const getFinalPrice = useCallback(() => {
+    const totalPrice = getTotalPrice();
+    const discountAmount = getDiscountAmount();
+    return totalPrice - discountAmount;
+  }, [getTotalPrice, getDiscountAmount]);
 
   return (
     <CartContext.Provider
       value={{
         items,
+        discountCode,
         addToCart,
         removeFromCart,
         updateQuantity,
         clearCart,
         getTotalPrice,
         getTotalItems,
+        applyDiscount,
+        removeDiscount,
+        getDiscountAmount,
+        getFinalPrice,
       }}
     >
       {children}

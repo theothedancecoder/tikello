@@ -15,6 +15,7 @@ import type {
 } from "convex/server";
 import type * as buyers from "../buyers.js";
 import type * as constant from "../constant.js";
+import type * as discountCodes from "../discountCodes.js";
 import type * as events from "../events.js";
 import type * as storage from "../storage.js";
 import type * as ticketTypes from "../ticketTypes.js";
@@ -33,6 +34,7 @@ import type * as waitingList from "../waitingList.js";
 declare const fullApi: ApiFromModules<{
   buyers: typeof buyers;
   constant: typeof constant;
+  discountCodes: typeof discountCodes;
   events: typeof events;
   storage: typeof storage;
   ticketTypes: typeof ticketTypes;

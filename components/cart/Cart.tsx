@@ -8,14 +8,37 @@ import { formatPriceWithConversion } from "@/lib/currency";
 import { useState } from "react";
 import { toast } from "sonner";
 import { createStripeCheckoutSessionForCart } from "@/actions/createStripeCheckoutSessionForCart";
+import { api } from "@/convex/_generated/api";
+import { useQuery, useMutation } from "convex/react";
+import { Id } from "@/convex/_generated/dataModel";
+
+interface DiscountCode {
+  _id: Id<"discountCodes">;
+  code: string;
+  percentage: number;
+}
 
 interface CartProps {
   currency?: string;
 }
 
 export default function Cart({ currency = "nok" }: CartProps) {
-  const { items, updateQuantity, removeFromCart, getTotalPrice, getTotalItems, clearCart } = useCart();
+  const { 
+    items, 
+    updateQuantity, 
+    removeFromCart, 
+    getTotalPrice, 
+    getTotalItems, 
+    clearCart,
+    discountCode,
+    applyDiscount,
+    removeDiscount,
+    getDiscountAmount,
+    getFinalPrice
+  } = useCart();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [discountInput, setDiscountInput] = useState("");
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
 
   const handleQuantityChange = (ticketTypeId: string, newQuantity: number) => {
     updateQuantity(ticketTypeId as any, newQuantity);
@@ -24,6 +47,54 @@ export default function Cart({ currency = "nok" }: CartProps) {
   const handleRemoveItem = (ticketTypeId: string) => {
     removeFromCart(ticketTypeId as any);
     toast.success("Item removed from cart");
+  };
+
+  const handleApplyDiscount = async () => {
+    if (!discountInput.trim()) {
+      toast.error("Please enter a discount code");
+      return;
+    }
+
+    if (!items[0]?.eventId) {
+      toast.error("Cart is empty");
+      return;
+    }
+
+    setIsApplyingDiscount(true);
+    try {
+      // Validate discount code against the database
+      const validation = await fetch('/api/validate-discount', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          eventId: items[0].eventId,
+          code: discountInput.trim().toUpperCase(),
+        }),
+      });
+
+      const result = await validation.json();
+
+      if (result.valid && result.discount) {
+        const discount: DiscountCode = {
+          _id: result.discount._id,
+          code: result.discount.code,
+          percentage: result.discount.percentage,
+        };
+        
+        applyDiscount(discount);
+        toast.success("Discount code applied successfully!");
+        setDiscountInput("");
+      } else {
+        toast.error(result.message || "Invalid discount code");
+      }
+    } catch (error) {
+      console.error("Error validating discount code:", error);
+      toast.error("Failed to apply discount code");
+    } finally {
+      setIsApplyingDiscount(false);
+    }
   };
 
   const handleCheckout = async () => {
@@ -36,6 +107,7 @@ export default function Cart({ currency = "nok" }: CartProps) {
     try {
       const { sessionUrl } = await createStripeCheckoutSessionForCart({
         cartItems: items,
+        discountCodeId: discountCode?._id,
       });
       
       if (sessionUrl) {
@@ -137,12 +209,71 @@ export default function Cart({ currency = "nok" }: CartProps) {
         ))}
       </div>
 
+      {/* Discount Code Section */}
+      <div className="border-t pt-4 mb-4">
+        {discountCode ? (
+          <div className="flex items-center justify-between bg-green-50 p-3 rounded-lg">
+            <div>
+              <p className="text-sm font-medium text-green-800">
+                Discount code applied: {discountCode.code}
+              </p>
+              <p className="text-sm text-green-600">
+                {discountCode.percentage}% off
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={removeDiscount}
+              className="text-green-700 hover:text-green-800"
+            >
+              Remove
+            </Button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Input
+              placeholder="Enter discount code"
+              value={discountInput}
+              onChange={(e) => setDiscountInput(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleApplyDiscount}
+              disabled={isApplyingDiscount}
+              variant="outline"
+            >
+              {isApplyingDiscount ? "Applying..." : "Apply"}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Total Section */}
       <div className="border-t pt-4">
-        <div className="flex justify-between items-center mb-4">
-          <span className="text-lg font-semibold">Total:</span>
-          <span className="text-xl font-bold text-green-600">
-            {formatPriceWithConversion(getTotalPrice(), currency)}
-          </span>
+        <div className="space-y-2 mb-4">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Subtotal:</span>
+            <span className="font-medium">
+              {formatPriceWithConversion(getTotalPrice(), currency)}
+            </span>
+          </div>
+          
+          {discountCode && (
+            <div className="flex justify-between items-center text-green-600">
+              <span>Discount ({discountCode.percentage}% off):</span>
+              <span>
+                -{formatPriceWithConversion(getDiscountAmount(), currency)}
+              </span>
+            </div>
+          )}
+          
+          <div className="flex justify-between items-center text-lg font-bold">
+            <span>Total:</span>
+            <span className="text-green-600">
+              {formatPriceWithConversion(getFinalPrice(), currency)}
+            </span>
+          </div>
         </div>
         
         <Button

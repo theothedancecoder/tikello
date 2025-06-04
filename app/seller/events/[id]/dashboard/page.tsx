@@ -6,15 +6,21 @@ import { useParams } from "next/navigation";
 import { Id } from "@/convex/_generated/dataModel";
 import Spinner from "@/components/Spinner";
 import BuyerDashboard from "@/components/BuyerDashboard";
+import DiscountCodeManager from "@/components/DiscountCodeManager";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+
+type TabType = "buyers" | "discounts";
 
 export default function EventDashboardPage() {
   const { user, isLoaded, isSignedIn } = useUser();
   const params = useParams();
   const eventId = params.id as Id<"events">;
   const event = useQuery(api.events.getById, isLoaded && isSignedIn ? { eventId } : "skip");
+  const [activeTab, setActiveTab] = useState<TabType>("buyers");
 
   if (!isLoaded) {
     return (
@@ -56,11 +62,33 @@ export default function EventDashboardPage() {
           Event Dashboard: {event.name}
         </h1>
         <p className="text-gray-600 mt-2">
-          View and manage buyers for this event
+          View and manage your event details
         </p>
       </div>
 
-      <BuyerDashboard eventId={eventId} />
+      <div className="mb-6 border-b border-gray-200">
+        <div className="flex gap-4">
+          <Button
+            variant={activeTab === "buyers" ? "default" : "ghost"}
+            onClick={() => setActiveTab("buyers")}
+            className="relative px-4 py-2 -mb-px"
+          >
+            Buyers
+          </Button>
+          <Button
+            variant={activeTab === "discounts" ? "default" : "ghost"}
+            onClick={() => setActiveTab("discounts")}
+            className="relative px-4 py-2 -mb-px"
+          >
+            Discount Codes
+          </Button>
+        </div>
+      </div>
+
+      {activeTab === "buyers" && <BuyerDashboard eventId={eventId} />}
+      {activeTab === "discounts" && (
+        <DiscountCodeManager eventId={eventId} sellerId={user.id} />
+      )}
     </div>
   );
 }

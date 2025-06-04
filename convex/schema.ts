@@ -10,12 +10,38 @@ export default defineSchema({
     price: v.number(),
     totalTickets: v.number(),
     userId: v.string(),
+    currency: v.optional(v.string()),
     imageStorageId: v.optional(v.id("_storage")),
     is_cancelled: v.optional(v.boolean()),
-    hasMultiTierTickets: v.optional(v.boolean()), // Flag to indicate if event uses new ticket system
-    currency: v.optional(v.string()), // Currency code for the event (e.g., "NOK", "USD", "GBP")
-  }),
-  
+    hasMultiTierTickets: v.optional(v.boolean()),
+  }).index("by_user", ["userId"]),
+
+  tickets: defineTable({
+    eventId: v.id("events"),
+    userId: v.string(),
+    purchasedAt: v.number(),
+    status: v.string(),
+    paymentIntentId: v.string(),
+    amount: v.number(),
+    originalAmount: v.optional(v.number()),
+    discountAmount: v.optional(v.number()),
+    ticketTypeId: v.optional(v.id("ticketTypes")),
+    discountCodeId: v.optional(v.id("discountCodes")),
+  })
+    .index("by_user", ["userId"])
+    .index("by_event", ["eventId"])
+    .index("by_user_event", ["userId", "eventId"]),
+
+  waitingList: defineTable({
+    eventId: v.id("events"),
+    userId: v.string(),
+    status: v.string(),
+    offerExpiresAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_event_status", ["eventId", "status"])
+    .index("by_user_event", ["userId", "eventId"]),
+
   ticketTypes: defineTable({
     eventId: v.id("events"),
     name: v.string(),
@@ -23,59 +49,33 @@ export default defineSchema({
     price: v.number(),
     totalQuantity: v.number(),
     soldQuantity: v.number(),
-    type: v.union(
-      v.literal("leader"),
-      v.literal("follower"),
-      v.literal("refreshment"),
-      v.literal("afterparty"),
-      v.literal("other")
-    ),
+    isEnabled: v.boolean(),
     startDate: v.optional(v.number()),
     endDate: v.optional(v.number()),
-    sortOrder: v.number(),
-    isEnabled: v.boolean(),
+    sortOrder: v.optional(v.number()),
+    type: v.optional(v.string()),
   }).index("by_event", ["eventId"]),
-  tickets: defineTable({
+
+  discountCodes: defineTable({
     eventId: v.id("events"),
-    userId: v.string(),
-    purchasedAt: v.number(),
-    status: v.union(
-      v.literal("valid"),
-      v.literal("used"),
-      v.literal("refunded"),
-      v.literal("cancelled")
-    ),
-    paymentIntentId: v.optional(v.string()),
-    amount: v.optional(v.number()),
-    ticketTypeId: v.optional(v.id("ticketTypes")), // For multi-tier tickets
+    sellerId: v.string(),
+    code: v.string(),
+    percentage: v.number(),
+    usageLimit: v.optional(v.number()),
+    usedCount: v.number(),
+    validFrom: v.optional(v.number()),
+    validTo: v.optional(v.number()),
+    active: v.boolean(),
+    createdAt: v.number(),
   })
     .index("by_event", ["eventId"])
-    .index("by_user", ["userId"])
-    .index("by_user_event", ["userId", "eventId"])
-    .index("by_payment_intent", ["paymentIntentId"])
-    .index("by_ticket_type", ["ticketTypeId"]),
-
-  waitingList: defineTable({
-    eventId: v.id("events"),
-    userId: v.string(),
-    status: v.union(
-      v.literal("waiting"),
-      v.literal("offered"),
-      v.literal("purchased"),
-      v.literal("expired")
-    ),
-    offerExpiresAt: v.optional(v.number()),
-  })
-    .index("by_event_status", ["eventId", "status"])
-    .index("by_user_event", ["userId", "eventId"])
-    .index("by_user", ["userId"]),
+    .index("by_event_code", ["eventId", "code"])
+    .index("by_seller", ["sellerId"]),
 
   users: defineTable({
-    name: v.string(),
-    email: v.string(),
     userId: v.string(),
+    email: v.string(),
+    name: v.string(),
     stripeConnectId: v.optional(v.string()),
-  })
-    .index("by_user_id", ["userId"])
-    .index("by_email", ["email"]),
+  }).index("by_user_id", ["userId"]),
 });

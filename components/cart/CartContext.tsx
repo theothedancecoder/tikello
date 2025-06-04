@@ -12,13 +12,24 @@ export interface CartItem {
   maxQuantity: number;
 }
 
+export interface DiscountCode {
+  _id: Id<"discountCodes">;
+  code: string;
+  percentage: number;
+}
+
 export interface CartContextType {
   items: CartItem[];
+  discountCode?: DiscountCode;
   addToCart: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
   removeFromCart: (ticketTypeId: Id<"ticketTypes">) => void;
   updateQuantity: (ticketTypeId: Id<"ticketTypes">, quantity: number) => void;
+  applyDiscount: (discount: DiscountCode) => void;
+  removeDiscount: () => void;
   clearCart: () => void;
   getTotalPrice: () => number;
+  getDiscountAmount: () => number;
+  getFinalPrice: () => number;
   getTotalItems: () => number;
 }
 

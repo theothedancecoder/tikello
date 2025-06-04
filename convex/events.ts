@@ -252,6 +252,7 @@ export const purchaseTicket = mutation({
         status: TICKET_STATUS.VALID,
         paymentIntentId: paymentInfo.paymentIntentId,
         amount: paymentInfo.amount,
+        originalAmount: paymentInfo.amount,
       });
 
       console.log("Updating waiting list status to purchased");
@@ -331,6 +332,7 @@ export const purchaseTicketType = mutation({
         status: TICKET_STATUS.VALID,
         paymentIntentId: paymentInfo.paymentIntentId,
         amount: paymentInfo.amount,
+        originalAmount: paymentInfo.amount,
         ticketTypeId: ticketTypeId,
       });
 
@@ -606,10 +608,12 @@ export const purchaseCartTickets = mutation({
       paymentIntentId: v.string(),
       amount: v.number(),
     }),
+    discountCodeId: v.optional(v.id("discountCodes")),
   },
-  handler: async (ctx, { eventId, userId, cartItems, paymentInfo }) => {
+  handler: async (ctx, { eventId, userId, cartItems, paymentInfo, discountCodeId }) => {
     console.log("Starting purchaseCartTickets handler", {
       eventId,
+      discountCodeId,
       userId,
       cartItems,
     });
@@ -656,10 +660,36 @@ export const purchaseCartTickets = mutation({
     );
 
     try {
+      // If discount code provided, validate and get discount percentage
+      let discountPercentage = 0;
+      if (discountCodeId) {
+        const discountCode = await ctx.db.get(discountCodeId);
+        if (!discountCode || !discountCode.active) {
+          throw new Error("Invalid or inactive discount code");
+        }
+
+        const now = Date.now();
+        if (discountCode.validFrom && discountCode.validFrom > now) {
+          throw new Error("Discount code is not yet valid");
+        }
+        if (discountCode.validTo && discountCode.validTo < now) {
+          throw new Error("Discount code has expired");
+        }
+        if (discountCode.usageLimit && discountCode.usedCount >= discountCode.usageLimit) {
+          throw new Error("Discount code has reached its usage limit");
+        }
+
+        discountPercentage = discountCode.percentage;
+      }
+
       // Create tickets for each cart item
       for (let i = 0; i < cartItems.length; i++) {
         const item = cartItems[i];
         const ticketType = ticketTypes[i];
+
+        // Calculate discounted price
+        const discountAmount = Math.round((item.price * discountPercentage) / 100);
+        const finalPrice = item.price - discountAmount;
 
         // Create multiple tickets based on quantity
         for (let j = 0; j < item.quantity; j++) {
@@ -669,14 +699,24 @@ export const purchaseCartTickets = mutation({
             purchasedAt: Date.now(),
             status: TICKET_STATUS.VALID,
             paymentIntentId: paymentInfo.paymentIntentId,
-            amount: item.price, // Individual ticket price
+            amount: finalPrice, // Store the discounted price
+            originalAmount: item.price, // Store original price for reference
             ticketTypeId: item.ticketTypeId,
+            discountCodeId, // Store reference to used discount code
+            discountAmount, // Store the discount amount
           });
         }
 
         // Update sold quantity for each ticket type
         await ctx.db.patch(item.ticketTypeId, {
           soldQuantity: ticketType.soldQuantity + item.quantity,
+        });
+      }
+
+      // If discount code was used, increment its usage count
+      if (discountCodeId) {
+        await ctx.db.patch(discountCodeId, {
+          usedCount: (await ctx.db.get(discountCodeId))!.usedCount + 1,
         });
       }
 

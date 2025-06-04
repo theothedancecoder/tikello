@@ -74,6 +74,7 @@ export async function POST(req: Request) {
               paymentIntentId: session.payment_intent as string,
               amount: session.amount_total ?? 0,
             },
+            discountCodeId: cartMetadata.discountCodeId,
           });
           console.log("Purchase cart tickets mutation completed:", result);
         } catch (parseError) {

@@ -12,12 +12,15 @@ export type StripeCheckoutMetaDataForCart = {
   eventId: Id<"events">;
   userId: string;
   cartItems: string; // JSON stringified cart items
+  discountCodeId?: Id<"discountCodes">;
 };
 
 export async function createStripeCheckoutSessionForCart({
   cartItems,
+  discountCodeId,
 }: {
   cartItems: CartItem[];
+  discountCodeId?: Id<"discountCodes">;
 }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Not authenticated");
@@ -62,8 +65,29 @@ export async function createStripeCheckoutSessionForCart({
     throw new Error("Stripe Connect ID not found for owner of the event!");
   }
 
-  // Calculate total application fee (2% of total)
-  const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  // Get discount code details if provided
+  let discountCode = null;
+  let discountPercentage = 0;
+  if (discountCodeId) {
+    discountCode = await convex.query(api.discountCodes.validateCode, {
+      eventId,
+      code: "", // We already have the ID, so we'll get it directly
+    });
+    
+    // Get discount code by ID
+    const discountCodeData = await convex.query(api.discountCodes.getById, {
+      discountCodeId,
+    });
+    
+    if (discountCodeData && discountCodeData.active) {
+      discountPercentage = discountCodeData.percentage;
+    }
+  }
+
+  // Calculate total amount and apply discount if provided
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const discountAmount = discountPercentage > 0 ? Math.round(subtotal * (discountPercentage / 100)) : 0;
+  const totalAmount = subtotal - discountAmount;
   const applicationFeeAmount = Math.round(totalAmount * 100 * 0.02); // 2% fee in cents
 
   const metadata: StripeCheckoutMetaDataForCart = {
@@ -74,19 +98,27 @@ export async function createStripeCheckoutSessionForCart({
       quantity: item.quantity,
       price: item.price,
     }))),
+    discountCodeId,
   };
 
   // Create line items for Stripe
-  const lineItems = cartItems.map(item => ({
-    price_data: {
-      currency: event.currency || "nok",
-      product_data: {
-        name: `${event.name} - ${item.ticketTypeName}`,
+  const lineItems = cartItems.map(item => {
+    const originalPrice = Math.round(item.price * 100); // stripe expects price in cents
+    const discountedPrice = discountPercentage > 0 
+      ? Math.round(originalPrice * (1 - discountPercentage / 100))
+      : originalPrice;
+
+    return {
+      price_data: {
+        currency: event.currency || "nok",
+        product_data: {
+          name: `${event.name} - ${item.ticketTypeName}`,
+        },
+        unit_amount: discountedPrice,
       },
-      unit_amount: Math.round(item.price * 100), // stripe expects price in cents
-    },
-    quantity: item.quantity,
-  }));
+      quantity: item.quantity,
+    };
+  });
 
   // Create Stripe Checkout Session
   const session = await stripe.checkout.sessions.create(
