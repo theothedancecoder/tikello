@@ -594,6 +594,96 @@ export const enableMultiTierTickets = mutation({
   },
 });
 
+export const getFinancialSummary = query({
+  args: { eventId: v.id("events") },
+  handler: async (ctx, { eventId }) => {
+    const event = await ctx.db.get(eventId);
+    if (!event) throw new Error("Event not found");
+
+    // Get all tickets for this event
+    const tickets = await ctx.db
+      .query("tickets")
+      .withIndex("by_event", (q) => q.eq("eventId", eventId))
+      .filter((q) => 
+        q.or(
+          q.eq(q.field("status"), TICKET_STATUS.VALID),
+          q.eq(q.field("status"), TICKET_STATUS.USED)
+        )
+      )
+      .collect();
+
+    // Calculate totals
+    let totalTicketsSold = tickets.length;
+    let totalOriginalAmount = 0;
+    let totalDiscountAmount = 0;
+    let totalFinalAmount = 0;
+    let totalFeeAmount = 0;
+    let totalNetAmount = 0;
+
+    // Group tickets by type
+    const ticketTypeBreakdown: Record<string, {
+      count: number;
+      originalAmount: number;
+      discountAmount: number;
+      finalAmount: number;
+      feeAmount: number;
+      netAmount: number;
+    }> = {};
+
+    for (const ticket of tickets) {
+      const originalAmount = ticket.originalAmount || ticket.amount;
+      const discountAmount = ticket.discountAmount || 0;
+      const finalAmount = ticket.amount;
+      const feeAmount = Math.round(finalAmount * 0.02); // 2% platform fee
+      const netAmount = finalAmount - feeAmount;
+
+      totalOriginalAmount += originalAmount;
+      totalDiscountAmount += discountAmount;
+      totalFinalAmount += finalAmount;
+      totalFeeAmount += feeAmount;
+      totalNetAmount += netAmount;
+
+      // Get ticket type name
+      let ticketTypeName = "Standard Ticket";
+      if (ticket.ticketTypeId) {
+        const ticketType = await ctx.db.get(ticket.ticketTypeId);
+        if (ticketType) {
+          ticketTypeName = ticketType.name;
+        }
+      }
+
+      if (!ticketTypeBreakdown[ticketTypeName]) {
+        ticketTypeBreakdown[ticketTypeName] = {
+          count: 0,
+          originalAmount: 0,
+          discountAmount: 0,
+          finalAmount: 0,
+          feeAmount: 0,
+          netAmount: 0,
+        };
+      }
+
+      ticketTypeBreakdown[ticketTypeName].count += 1;
+      ticketTypeBreakdown[ticketTypeName].originalAmount += originalAmount;
+      ticketTypeBreakdown[ticketTypeName].discountAmount += discountAmount;
+      ticketTypeBreakdown[ticketTypeName].finalAmount += finalAmount;
+      ticketTypeBreakdown[ticketTypeName].feeAmount += feeAmount;
+      ticketTypeBreakdown[ticketTypeName].netAmount += netAmount;
+    }
+
+    return {
+      totalTicketsSold,
+      totalOriginalAmount,
+      totalDiscountAmount,
+      totalFinalAmount,
+      totalFeeAmount,
+      totalNetAmount,
+      ticketTypeBreakdown,
+      currency: event.currency || "nok",
+    };
+  },
+});
+
 // Purchase multiple ticket types from cart
 export const purchaseCartTickets = mutation({
   args: {

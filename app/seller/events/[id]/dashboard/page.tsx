@@ -7,13 +7,14 @@ import { Id } from "@/convex/_generated/dataModel";
 import Spinner from "@/components/Spinner";
 import BuyerDashboard from "@/components/BuyerDashboard";
 import DiscountCodeManager from "@/components/DiscountCodeManager";
+import FinancialSummary from "@/components/FinancialSummary";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
-type TabType = "buyers" | "discounts";
+type TabType = "buyers" | "discounts" | "financial";
 
 export default function EventDashboardPage() {
   const { user, isLoaded, isSignedIn } = useUser();
@@ -82,6 +83,13 @@ export default function EventDashboardPage() {
           >
             Discount Codes
           </Button>
+          <Button
+            variant={activeTab === "financial" ? "default" : "ghost"}
+            onClick={() => setActiveTab("financial")}
+            className="relative px-4 py-2 -mb-px"
+          >
+            Financial Summary
+          </Button>
         </div>
       </div>
 
@@ -89,6 +97,7 @@ export default function EventDashboardPage() {
       {activeTab === "discounts" && (
         <DiscountCodeManager eventId={eventId} sellerId={user.id} />
       )}
+      {activeTab === "financial" && <FinancialSummary eventId={eventId} />}
     </div>
   );
 }
