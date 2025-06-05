@@ -5,6 +5,7 @@ import { useQuery } from "convex/react";
 import { useUser } from "@clerk/nextjs";
 import TicketCard from "@/components/TicketCard";
 import { Ticket } from "lucide-react";
+import AIChat from "@/components/AIChat";
 
 export default function MyTicketsPage() {
   const { user } = useUser();
@@ -95,6 +96,7 @@ export default function MyTicketsPage() {
           </div>
         )}
       </div>
+      <AIChat mode="buyer" />
     </div>
   );
 }

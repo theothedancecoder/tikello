@@ -11,6 +11,7 @@ import { AccountStatus, getStripeConnectAccountStatus } from "@/actions/getStrip
 import { createStripeConnectCustomer } from "@/actions/createStripeConnectCustomer";
 import { createStripeConnectAccountLink } from "@/actions/getStripeAccountLink";
 import { createStripeConnectLoginLink } from "@/actions/createStripeConnectLoginLinks";
+import AIChat from "@/components/AIChat";
 
 export default function SellerDashboard() {
   const [accountCreatePending, setAccountCreatePending] = useState(false);
@@ -321,6 +322,7 @@ export default function SellerDashboard() {
           )}
         </div>
       </div>
+      <AIChat mode="seller" />
     </div>
   );
 }

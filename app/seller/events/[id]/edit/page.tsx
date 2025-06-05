@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Id } from "@/convex/_generated/dataModel";
 import Spinner from "@/components/Spinner";
 import EditEventForm from "@/components/EditEventForm";
+import AIChat from "@/components/AIChat";
 
 export default function EditEventPage() {
   const params = useParams();
@@ -25,6 +26,7 @@ export default function EditEventPage() {
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h1 className="text-2xl font-bold mb-6">Edit Event: {event.name}</h1>
         <EditEventForm event={event} />
+        <AIChat mode="seller" />
       </div>
     </div>
   );
