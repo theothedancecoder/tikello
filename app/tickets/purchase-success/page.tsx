@@ -5,12 +5,12 @@ import { useQuery } from "convex/react";
 import { useUser } from "@clerk/nextjs";
 import { redirect } from "next/navigation";
 import Ticket from "@/components/Ticket";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useCart } from "@/components/cart/CartContext";
 import { Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
-export default function TicketSuccess() {
+function TicketSuccessContent() {
   const { user, isLoaded: isUserLoaded } = useUser();
   const { clearCart } = useCart();
   const searchParams = useSearchParams();
@@ -164,5 +164,26 @@ export default function TicketSuccess() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TicketSuccess() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900">
+              Loading...
+            </h1>
+          </div>
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          </div>
+        </div>
+      </div>
+    }>
+      <TicketSuccessContent />
+    </Suspense>
   );
 }

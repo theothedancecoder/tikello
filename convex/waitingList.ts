@@ -25,54 +25,10 @@ function groupByEvent(
 }
 
 /**
- * Query to get a user's current position in the waiting list for an event.
- * Returns null if user is not in queue, otherwise returns their entry with position.
- */
-export const getQueuePosition = query({
-  args: {
-    eventId: v.id("events"),
-    userId: v.string(),
-  },
-  handler: async (ctx, { eventId, userId }) => {
-    // Get entry for this specific user and event combination
-    const entry = await ctx.db
-      .query("waitingList")
-      .withIndex("by_user_event", (q) =>
-        q.eq("userId", userId).eq("eventId", eventId)
-      )
-      .filter((q) => q.neq(q.field("status"), WAITING_LIST_STATUS.EXPIRED))
-      .first();
-
-    if (!entry) return null;
-
-    // Get total number of people ahead in line
-    const peopleAhead = await ctx.db
-      .query("waitingList")
-      .withIndex("by_event_status", (q) => q.eq("eventId", eventId))
-      .filter((q) =>
-        q.and(
-          q.lt(q.field("_creationTime"), entry._creationTime),
-          q.or(
-            q.eq(q.field("status"), WAITING_LIST_STATUS.WAITING),
-            q.eq(q.field("status"), WAITING_LIST_STATUS.OFFERED)
-          )
-        )
-      )
-      .collect()
-      .then((entries) => entries.length);
-
-    return {
-      ...entry,
-      position: peopleAhead + 1,
-    };
-  },
-});
-
-/**
- * Mutation to process the waiting list queue and offer tickets to next eligible users.
+ * Internal mutation to process the waiting list queue and offer tickets to next eligible users.
  * Checks current availability considering purchased tickets and active offers.
  */
-export const processQueue = mutation({
+export const processQueue = internalMutation({
   args: {
     eventId: v.id("events"),
   },
@@ -152,6 +108,50 @@ export const processQueue = mutation({
 });
 
 /**
+ * Query to get a user's current position in the waiting list for an event.
+ * Returns null if user is not in queue, otherwise returns their entry with position.
+ */
+export const getQueuePosition = query({
+  args: {
+    eventId: v.id("events"),
+    userId: v.string(),
+  },
+  handler: async (ctx, { eventId, userId }) => {
+    // Get entry for this specific user and event combination
+    const entry = await ctx.db
+      .query("waitingList")
+      .withIndex("by_user_event", (q) =>
+        q.eq("userId", userId).eq("eventId", eventId)
+      )
+      .filter((q) => q.neq(q.field("status"), WAITING_LIST_STATUS.EXPIRED))
+      .first();
+
+    if (!entry) return null;
+
+    // Get total number of people ahead in line
+    const peopleAhead = await ctx.db
+      .query("waitingList")
+      .withIndex("by_event_status", (q) => q.eq("eventId", eventId))
+      .filter((q) =>
+        q.and(
+          q.lt(q.field("_creationTime"), entry._creationTime),
+          q.or(
+            q.eq(q.field("status"), WAITING_LIST_STATUS.WAITING),
+            q.eq(q.field("status"), WAITING_LIST_STATUS.OFFERED)
+          )
+        )
+      )
+      .collect()
+      .then((entries) => entries.length);
+
+    return {
+      ...entry,
+      position: peopleAhead + 1,
+    };
+  },
+});
+
+/**
  * Internal mutation to expire a single offer and process queue for next person.
  * Called by scheduled job when offer timer expires.
  */
@@ -168,7 +168,7 @@ export const expireOffer = internalMutation({
       status: WAITING_LIST_STATUS.EXPIRED,
     });
 
-    await processQueue(ctx, { eventId });
+    await ctx.runMutation(internal.waitingList.processQueue, { eventId });
   },
 });
 
@@ -209,7 +209,9 @@ export const cleanupExpiredOffers = internalMutation({
         )
       );
 
-      await processQueue(ctx, { eventId: eventId as Id<"events"> });
+      await ctx.runMutation(internal.waitingList.processQueue, { 
+        eventId: eventId as Id<"events"> 
+      });
     }
   },
 });
@@ -231,6 +233,6 @@ export const releaseTicket = mutation({
     });
 
     // Process queue to offer ticket to next person
-    await processQueue(ctx, { eventId });
+    await ctx.runMutation(internal.waitingList.processQueue, { eventId });
   },
 });

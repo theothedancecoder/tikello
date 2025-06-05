@@ -1,8 +1,9 @@
-import { auth } from "@clerk/nextjs";
+
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
@@ -15,7 +16,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const user = await auth().getUser(targetUserId);
+    const user = await (await clerkClient()).users.getUser(targetUserId);
+    
+    if (!user) {
+      return new NextResponse("User not found", { status: 404 });
+    }
+
     return NextResponse.json({
       name: `${user.firstName} ${user.lastName}`.trim(),
       email: user.emailAddresses[0].emailAddress,
