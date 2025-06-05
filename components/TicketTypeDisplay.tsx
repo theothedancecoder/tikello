@@ -5,6 +5,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import AddToCartButton from "./cart/AddToCartButton";
 import { formatPriceWithConversion } from "@/lib/currency";
+import { useCurrency } from "./CurrencyContext";
 
 interface TicketTypeDisplayProps {
   eventId: Id<"events">;
@@ -17,6 +18,7 @@ export default function TicketTypeDisplay({
 }: TicketTypeDisplayProps) {
   const ticketTypes = useQuery(api.ticketTypes.get, { eventId }) || [];
   const event = useQuery(api.events.getById, { eventId });
+  const { currency } = useCurrency();
 
   if (ticketTypes.length === 0) {
     return null;
@@ -64,7 +66,7 @@ export default function TicketTypeDisplay({
                         isSoldOut ? "text-gray-500" : "text-green-600"
                       }`}
                     >
-                      {formatPriceWithConversion(ticketType.price, event?.currency)}
+                      {formatPriceWithConversion(ticketType.price, event?.currency, currency)}
                     </span>
                     <span className="text-sm text-gray-600">
                       {availability?.remaining || 0} of {ticketType.totalQuantity} available

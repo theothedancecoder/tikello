@@ -1,7 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { ConvexError, v } from "convex/values";
 import { DURATIONS, WAITING_LIST_STATUS, TICKET_STATUS } from "./constant";
-import { processQueue } from "./waitingList";
 
 export type Metrics = {
   soldTickets: number;
@@ -353,22 +352,41 @@ export const purchaseTicketType = mutation({
 export const getUserTickets = query({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {
+    // Get all tickets for the user
     const tickets = await ctx.db
       .query("tickets")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const ticketsWithEvents = await Promise.all(
+    // Get buyer information
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_user_id", (q) => q.eq("userId", userId))
+      .first();
+
+    // Enhance tickets with event, ticket type, and buyer info
+    const ticketsWithDetails = await Promise.all(
       tickets.map(async (ticket) => {
-        const event = await ctx.db.get(ticket.eventId);
+        const [event, ticketType] = await Promise.all([
+          ctx.db.get(ticket.eventId),
+          ticket.ticketTypeId ? ctx.db.get(ticket.ticketTypeId) : null,
+        ]);
+
         return {
           ...ticket,
           event,
+          ticketType,
+          buyerInfo: user ? {
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+          } : undefined,
         };
       })
     );
 
-    return ticketsWithEvents;
+    // Sort by purchase date, newest first
+    return ticketsWithDetails.sort((a, b) => b.purchasedAt - a.purchasedAt);
   },
 });
 
