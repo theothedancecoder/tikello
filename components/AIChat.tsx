@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { MessageCircle, X } from "lucide-react";
 
 type Role = "user" | "assistant" | "system";
 
@@ -17,6 +18,7 @@ export default function AIChat({ mode }: AIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -99,58 +101,73 @@ export default function AIChat({ mode }: AIChatProps) {
           }
         `}
       </style>
-      <div className="fixed bottom-4 right-4 w-80 max-h-[400px] bg-white border border-gray-300 rounded-lg shadow-lg flex flex-col">
-        <div className="p-2 border-b border-gray-200 font-semibold flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            {mode === "buyer" ? "Tikello" : "Seller Assistant"}
-            {(mode === "seller" || mode === "buyer") && (
-              <span
-                className="animate-wave"
-                role="img"
-                aria-label="waving smiling face"
-              >
-                👋😊
-              </span>
+      
+      {/* Chat Toggle Button - Always visible */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed bottom-4 right-4 z-50 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-colors duration-200"
+        aria-label={isOpen ? "Close chat" : "Open chat"}
+      >
+        {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
+      </button>
+
+      {/* Chat Window - Hidden on small screens by default, toggleable */}
+      {isOpen && (
+        <div className="fixed bottom-20 right-4 w-80 max-w-[calc(100vw-2rem)] max-h-[400px] bg-white border border-gray-300 rounded-lg shadow-lg flex flex-col z-40">
+          <div className="p-2 border-b border-gray-200 font-semibold flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {mode === "buyer" ? "Tikello" : "Seller Assistant"}
+                {(mode === "seller" || mode === "buyer") && (
+                  <span
+                    className="animate-wave"
+                    role="img"
+                    aria-label="waving smiling face"
+                  >
+                    👋😊
+                  </span>
+                )}
+              </div>
+            </div>
+            {mode === "buyer" && (
+              <div className="text-sm text-gray-600 italic">
+                How can I help?
+              </div>
             )}
           </div>
-          {mode === "buyer" && (
-            <div className="text-sm text-gray-600 italic">
-              How can I help?
-            </div>
-          )}
-        </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-2">
-          {messages.map((msg, idx) => (
-            <div
-              key={idx}
-              className={`p-2 rounded ${
-                msg.role === "user" ? "bg-blue-100 text-blue-900 self-end" : "bg-gray-100 text-gray-900 self-start"
-              } max-w-[75%]`}
+          <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-[200px]">
+            {messages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`p-2 rounded ${
+                  msg.role === "user" ? "bg-blue-100 text-blue-900 self-end" : "bg-gray-100 text-gray-900 self-start"
+                } max-w-[75%]`}
+              >
+                {msg.content}
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+          <div className="p-2 border-t border-gray-200 flex gap-2">
+            <textarea
+              className="flex-grow border border-gray-300 rounded px-2 py-1 resize-none text-sm"
+              rows={1}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Type your message..."
+              disabled={isLoading}
+            />
+            <button
+              className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50 text-sm"
+              onClick={handleSend}
+              disabled={isLoading || !input.trim()}
             >
-              {msg.content}
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
+              Send
+            </button>
+          </div>
         </div>
-        <div className="p-2 border-t border-gray-200 flex gap-2">
-          <textarea
-            className="flex-grow border border-gray-300 rounded px-2 py-1 resize-none"
-            rows={1}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message..."
-            disabled={isLoading}
-          />
-          <button
-            className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
-            onClick={handleSend}
-            disabled={isLoading || !input.trim()}
-          >
-            Send
-          </button>
-        </div>
-      </div>
+      )}
     </>
   );
 }
