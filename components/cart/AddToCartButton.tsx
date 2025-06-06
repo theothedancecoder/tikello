@@ -67,16 +67,16 @@ export default function AddToCartButton({
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center border rounded-lg">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex items-center border rounded justify-center">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => handleQuantityChange(quantity - 1)}
           disabled={quantity <= 1}
-          className="h-8 w-8 p-0"
+          className="h-8 w-8 p-0 sm:h-10 sm:w-12"
         >
-          <Minus className="w-3 h-3" />
+          <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
         </Button>
         <Input
           type="number"
@@ -84,25 +84,25 @@ export default function AddToCartButton({
           max={availableQuantity}
           value={quantity}
           onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
-          className="w-16 h-8 text-center border-0 focus:ring-0"
+          className="w-12 h-8 text-center border-0 focus:ring-0 text-sm sm:w-20 sm:h-10 sm:text-lg"
         />
         <Button
           variant="ghost"
           size="sm"
           onClick={() => handleQuantityChange(quantity + 1)}
           disabled={quantity >= availableQuantity}
-          className="h-8 w-8 p-0"
+          className="h-8 w-8 p-0 sm:h-10 sm:w-12"
         >
-          <Plus className="w-3 h-3" />
+          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
         </Button>
       </div>
       <Button
         onClick={handleAddToCart}
-        className="flex items-center gap-2"
+        className="flex items-center justify-center gap-2 h-8 w-full sm:w-auto sm:h-10 sm:px-4"
         size="sm"
       >
-        <ShoppingCart className="w-4 h-4" />
-        Add to Cart
+        <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
+        <span>Add to Cart</span>
       </Button>
     </div>
   );

@@ -40,13 +40,13 @@ export default function TicketTypeDisplay({
           return (
             <div
               key={ticketType._id}
-              className={`p-4 border rounded-lg ${
+              className={`p-2 sm:p-4 border rounded-lg ${
                 isSoldOut || isNotOnSale
                   ? "border-gray-200 bg-gray-50"
                   : "border-gray-300 bg-white hover:border-blue-300"
               }`}
             >
-              <div className="flex justify-between items-start">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                 <div className="flex-1">
                   <h4
                     className={`font-medium ${
@@ -84,7 +84,7 @@ export default function TicketTypeDisplay({
                   )}
                 </div>
 
-                <div className="ml-4">
+                <div className="sm:ml-4">
                   <AddToCartButton
                     ticketTypeId={ticketType._id}
                     eventId={eventId}
