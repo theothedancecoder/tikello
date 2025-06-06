@@ -8,6 +8,13 @@ import { StripeCheckoutMetaDataForTicketType } from "@/actions/createStripeCheck
 import { StripeCheckoutMetaDataForCart } from "@/actions/createStripeCheckoutSessionForCart";
 import { clerkClient } from "@clerk/nextjs/server";
 
+// Add GET handler for testing
+export async function GET() {
+  return new Response("Webhook endpoint is working. Use POST for actual webhooks.", { 
+    status: 200,
+    headers: { 'Content-Type': 'text/plain' }
+  });
+}
 
 export async function POST(req: Request) {
   console.log("=== Webhook Debug Start ===");
