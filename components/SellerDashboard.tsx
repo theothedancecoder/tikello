@@ -27,6 +27,11 @@ export default function SellerDashboard() {
     userId: user?.id || "",
   });
 
+  const events = useQuery(api.events.getSellerEvents, { userId: user?.id || "" });
+
+  // Add loading state check for events
+  const isEventsLoading = events === undefined;
+
   const isReadyToAcceptPayments =
     accountStatus?.isActive && accountStatus?.payoutsEnabled;
 
@@ -84,24 +89,54 @@ export default function SellerDashboard() {
               <p className="text-gray-600 mb-8">
                 List your tickets for sale and manage your listings
               </p>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                <div className="flex justify-center gap-4">
-                  <Link
-                    href="/seller/new-event"
-                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    <Plus className="w-5 h-5" />
-                    Create Event
-                  </Link>
-                  <Link
-                    href="/seller/events"
-                    className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    <CalendarDays className="w-5 h-5" />
-                    View My Events
-                  </Link>
-                </div>
-              </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <div className="flex justify-center gap-4">
+            <Link
+              href="/seller/new-event"
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Create Event
+            </Link>
+            <Link
+              href="/seller/events"
+              className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              <CalendarDays className="w-5 h-5" />
+              View My Events
+            </Link>
+          </div>
+        </div>
+
+        {!isEventsLoading && events && events.length > 0 && (
+          <div className="mt-8">
+            <h3 className="text-xl font-semibold mb-4">Your Events</h3>
+            <ul className="space-y-4">
+              {events.map((event) => (
+                <li
+                  key={event._id}
+                  className="border p-4 rounded shadow flex justify-between items-center"
+                >
+                  <div>
+                    <h4 className="text-lg font-semibold">{event.name}</h4>
+                    <p className="text-gray-600">
+                      Date: {new Date(event.eventDate).toLocaleDateString()}
+                    </p>
+                    <p className="text-gray-600">Location: {event.location}</p>
+                  </div>
+                  <div>
+                    <Link
+                      href={`/seller/events/${event._id}/scan`}
+                      className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                    >
+                      Scan Tickets
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
             </div>
 
             <hr className="my-8" />
