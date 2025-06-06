@@ -21,6 +21,9 @@ import { useStorageUrl } from "@/lib/utils";
 import { formatPriceWithConversion, getCurrencyInfo } from "@/lib/currency";
 import Image from "next/image";
 import PurchaseTicket from "./PurchasedTicket";
+import { useState } from "react";
+import { duplicateEvent } from "@/actions/duplicateEvent";
+import { toast } from "sonner";
 
 export default function EventCard({ eventId }: { eventId: Id<"events"> }) {
   const { user } = useUser();
@@ -37,6 +40,11 @@ export default function EventCard({ eventId }: { eventId: Id<"events"> }) {
   });
   const imageUrl = useStorageUrl(event?.imageStorageId);
 
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const [showDuplicateForm, setShowDuplicateForm] = useState(false);
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
+
   if (!event || !availability) {
     return null;
   }
@@ -44,6 +52,31 @@ export default function EventCard({ eventId }: { eventId: Id<"events"> }) {
   const isPastEvent = event.eventDate < Date.now();
 
   const isEventOwner = user?.id === event?.userId;
+
+  const handleDuplicate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!newStartDate || !newEndDate) {
+      toast.error("Please enter both start and end dates");
+      return;
+    }
+    setIsDuplicating(true);
+    try {
+      const result = await duplicateEvent({ eventId, newStartDate, newEndDate });
+      if (result.success) {
+        toast.success("Event duplicated successfully");
+        router.push(`/seller/events/${result.newEventId}/edit`);
+      } else {
+        toast.error("Failed to duplicate event");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to duplicate event");
+    } finally {
+      setIsDuplicating(false);
+      setShowDuplicateForm(false);
+      setNewStartDate("");
+      setNewEndDate("");
+    }
+  };
 
   const renderQueuePosition = () => {
     if (!queuePosition || queuePosition.status !== "waiting") return null;
@@ -126,6 +159,50 @@ export default function EventCard({ eventId }: { eventId: Id<"events"> }) {
             <BarChart2 className="w-5 h-5" />
             View Dashboard
           </button>
+          {isPastEvent && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDuplicateForm(!showDuplicateForm);
+                }}
+                className="w-full bg-yellow-50 text-yellow-700 px-6 py-3 rounded-lg font-medium hover:bg-yellow-100 transition-colors duration-200 shadow-sm flex items-center justify-center gap-2 border border-yellow-200"
+              >
+                Duplicate Event
+              </button>
+              {showDuplicateForm && (
+                <div className="mt-2 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <label className="block mb-2 font-medium text-yellow-700">
+                    New Start Date:
+                    <input
+                      type="date"
+                      value={newStartDate}
+                      onChange={(e) => setNewStartDate(e.target.value)}
+                      className="border p-1 rounded w-full mt-1"
+                      disabled={isDuplicating}
+                    />
+                  </label>
+                  <label className="block mb-2 font-medium text-yellow-700">
+                    New End Date:
+                    <input
+                      type="date"
+                      value={newEndDate}
+                      onChange={(e) => setNewEndDate(e.target.value)}
+                      className="border p-1 rounded w-full mt-1"
+                      disabled={isDuplicating}
+                    />
+                  </label>
+                  <button
+                    onClick={handleDuplicate}
+                    disabled={isDuplicating}
+                    className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 disabled:opacity-50"
+                  >
+                    {isDuplicating ? "Duplicating..." : "Duplicate Event"}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       );
     }

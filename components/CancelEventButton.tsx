@@ -28,7 +28,19 @@ export default function CancelEventButton({
     setIsCancelling(true);
 
     try {
-      await refundEventTickets(eventId);
+      const refundResult = await refundEventTickets(eventId);
+
+      if (!refundResult.success) {
+        const errorMessages = refundResult.failedTickets
+          .map((t: { ticketId: string; error: string }) => `Ticket ${t.ticketId}: ${t.error}`)
+          .join("\n");
+        toast.error("Refund failed for some tickets", {
+          description: errorMessages,
+        });
+        setIsCancelling(false);
+        return;
+      }
+
       await cancelEvent({ eventId });
 
       toast.success("Event cancelled", {

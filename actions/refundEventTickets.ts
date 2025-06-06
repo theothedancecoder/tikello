@@ -55,22 +55,35 @@ export async function refundEventTickets(eventId: Id<"events">) {
         });
 
         return { success: true, ticketId: ticket._id };
-      } catch (error) {
+      } catch (error: unknown) {
         console.error(`Failed to refund ticket ${ticket._id}:`, error);
-        return { success: false, ticketId: ticket._id, error };
+        let message = "Unknown error";
+        if (error instanceof Error) {
+          message = error.message;
+        } else if (typeof error === "string") {
+          message = error;
+        }
+        return { success: false, ticketId: ticket._id, error: message };
       }
     })
   );
 
   // Check if all refunds were successful
   const allSuccessful = results.every(
-    (result) => result.status === "fulfilled" && result.value.success
+    (result): result is PromiseFulfilledResult<{ success: boolean; ticketId: Id<"tickets">; error?: string }> =>
+      result.status === "fulfilled" && result.value.success
   );
 
   if (!allSuccessful) {
-    throw new Error(
-      "Some refunds failed. Please check the logs and try again."
-    );
+    // Collect failed ticket errors
+    const failedTickets = results
+      .filter(
+        (result): result is PromiseFulfilledResult<{ success: boolean; ticketId: Id<"tickets">; error?: string }> =>
+          result.status === "fulfilled" && !result.value.success
+      )
+      .map((result) => ({ ticketId: result.value.ticketId, error: result.value.error }));
+
+    return { success: false, failedTickets };
   }
 
   // Cancel the event instead of deleting it
