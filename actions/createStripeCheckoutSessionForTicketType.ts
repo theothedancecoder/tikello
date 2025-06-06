@@ -11,6 +11,7 @@ export type StripeCheckoutMetaDataForTicketType = {
   eventId: Id<"events">;
   userId: string;
   ticketTypeId: Id<"ticketTypes">;
+  stripeConnectId: string;
 };
 
 export async function createStripeCheckoutSessionForTicketType({
@@ -51,6 +52,7 @@ export async function createStripeCheckoutSessionForTicketType({
     eventId,
     userId,
     ticketTypeId,
+    stripeConnectId,
   };
 
   // Create Stripe Checkout Session

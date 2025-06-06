@@ -93,6 +93,53 @@ export async function POST(req: Request) {
 
     const metadata = session.metadata as StripeCheckoutMetaData;
 
+    // Get Stripe fee breakdown from payment intent
+    let stripeFeesData = undefined;
+    if (session.payment_intent && typeof session.payment_intent === 'string') {
+      try {
+        // For Connect accounts, we need to retrieve from the connected account
+        const paymentIntent = await stripe.paymentIntents.retrieve(
+          session.payment_intent,
+          {
+            stripeAccount: metadata.stripeConnectId
+          }
+        );
+
+        if (paymentIntent.latest_charge && typeof paymentIntent.latest_charge === 'string') {
+          const charge = await stripe.charges.retrieve(
+            paymentIntent.latest_charge,
+            {
+              stripeAccount: metadata.stripeConnectId
+            }
+          );
+
+          if (charge.balance_transaction && typeof charge.balance_transaction === 'string') {
+            const balanceTransaction = await stripe.balanceTransactions.retrieve(
+              charge.balance_transaction,
+              {
+                stripeAccount: metadata.stripeConnectId
+              }
+            );
+
+            stripeFeesData = {
+              gross: balanceTransaction.amount,
+              fee: balanceTransaction.fee,
+              net: balanceTransaction.net,
+              feeDetails: balanceTransaction.fee_details.map(detail => ({
+                type: detail.type,
+                amount: detail.amount,
+                currency: detail.currency,
+              })),
+            };
+            console.log("Stripe fees data retrieved:", stripeFeesData);
+          }
+        }
+      } catch (feeError) {
+        console.error("Failed to retrieve Stripe fee information:", feeError);
+        // Continue without fee data if retrieval fails
+      }
+    }
+
     try {
       // Check if this is a cart purchase
       if ('cartItems' in metadata) {
@@ -128,8 +175,9 @@ export async function POST(req: Request) {
             userId: cartMetadata.userId,
             cartItems: cartItems,
             paymentInfo: {
-              paymentIntentId: session.id, // Use session ID instead of payment intent
+              paymentIntentId: session.id,
               amount: session.amount_total ?? 0,
+              stripeFees: stripeFeesData,
             },
             discountCodeId: cartMetadata.discountCodeId,
             buyerInfo: cartMetadata.buyerName ? {

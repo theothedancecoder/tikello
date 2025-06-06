@@ -192,6 +192,16 @@ export const purchaseTicket = mutation({
     paymentInfo: v.object({
       paymentIntentId: v.string(),
       amount: v.number(),
+      stripeFees: v.optional(v.object({
+        gross: v.number(),
+        fee: v.number(),
+        net: v.number(),
+        feeDetails: v.array(v.object({
+          type: v.string(),
+          amount: v.number(),
+          currency: v.string(),
+        })),
+      })),
     }),
   },
   handler: async (ctx, { eventId, userId, waitingListId, paymentInfo }) => {
@@ -252,6 +262,7 @@ export const purchaseTicket = mutation({
         paymentIntentId: paymentInfo.paymentIntentId,
         amount: paymentInfo.amount,
         originalAmount: paymentInfo.amount,
+        stripeFees: paymentInfo.stripeFees,
       });
 
       console.log("Updating waiting list status to purchased");
@@ -277,6 +288,16 @@ export const purchaseTicketType = mutation({
     paymentInfo: v.object({
       paymentIntentId: v.string(),
       amount: v.number(),
+      stripeFees: v.optional(v.object({
+        gross: v.number(),
+        fee: v.number(),
+        net: v.number(),
+        feeDetails: v.array(v.object({
+          type: v.string(),
+          amount: v.number(),
+          currency: v.string(),
+        })),
+      })),
     }),
   },
   handler: async (ctx, { eventId, userId, ticketTypeId, paymentInfo }) => {
@@ -333,6 +354,7 @@ export const purchaseTicketType = mutation({
         amount: paymentInfo.amount,
         originalAmount: paymentInfo.amount,
         ticketTypeId: ticketTypeId,
+        stripeFees: paymentInfo.stripeFees,
       });
 
       // Increment sold quantity for the ticket type
@@ -652,8 +674,10 @@ export const getFinancialSummary = query({
       const originalAmount = ticket.originalAmount || ticket.amount;
       const discountAmount = ticket.discountAmount || 0;
       const finalAmount = ticket.amount;
-      const feeAmount = Math.round(finalAmount * 0.02); // 2% platform fee
-      const netAmount = finalAmount - feeAmount;
+      
+      // Use actual Stripe fees if available, otherwise fallback to 2% estimate
+      const feeAmount = ticket.stripeFees?.fee ?? Math.round(finalAmount * 0.02);
+      const netAmount = ticket.stripeFees?.net ?? (finalAmount - feeAmount);
 
       totalOriginalAmount += originalAmount;
       totalDiscountAmount += discountAmount;
@@ -715,6 +739,16 @@ export const purchaseCartTickets = mutation({
     paymentInfo: v.object({
       paymentIntentId: v.string(),
       amount: v.number(),
+      stripeFees: v.optional(v.object({
+        gross: v.number(),
+        fee: v.number(),
+        net: v.number(),
+        feeDetails: v.array(v.object({
+          type: v.string(),
+          amount: v.number(),
+          currency: v.string(),
+        })),
+      })),
     }),
     discountCodeId: v.optional(v.id("discountCodes")),
     buyerInfo: v.optional(v.object({
@@ -843,6 +877,7 @@ export const purchaseCartTickets = mutation({
             ticketTypeId: item.ticketTypeId,
             discountCodeId, // Store reference to used discount code
             discountAmount, // Store the discount amount
+            stripeFees: paymentInfo.stripeFees,
           });
         }
 

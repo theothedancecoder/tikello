@@ -12,6 +12,7 @@ export type StripeCheckoutMetaData = {
   eventId: Id<"events">;
   userId: string;
   waitingListId: Id<"waitingList">;
+  stripeConnectId: string;
 };
 
 export async function createStripeCheckoutSession({
@@ -57,6 +58,7 @@ export async function createStripeCheckoutSession({
     eventId,
     userId,
     waitingListId: queuePosition._id,
+    stripeConnectId,
   };
 
   // Create Stripe Checkout Session

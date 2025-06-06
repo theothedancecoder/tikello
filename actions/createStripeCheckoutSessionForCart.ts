@@ -16,6 +16,7 @@ export type StripeCheckoutMetaDataForCart = {
   buyerName: string;
   buyerEmail: string;
   buyerPhone?: string;
+  stripeConnectId: string;
 };
 
 export async function createStripeCheckoutSessionForCart({
@@ -107,6 +108,7 @@ export async function createStripeCheckoutSessionForCart({
     buyerName: buyerInfo.fullName,
     buyerEmail: buyerInfo.email,
     buyerPhone: buyerInfo.phone,
+    stripeConnectId,
   };
 
   // Create line items for Stripe
