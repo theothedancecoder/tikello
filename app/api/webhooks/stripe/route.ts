@@ -76,7 +76,7 @@ export async function POST(req: Request) {
   if (event.type === "checkout.session.completed") {
     console.log("6. Processing checkout.session.completed");
     const session = event.data.object as Stripe.Checkout.Session;
-    const metadata = session.metadata as StripeCheckoutMetaData;
+    
     console.log("7. Session details:", {
       id: session.id,
       customer: session.customer,
@@ -85,11 +85,13 @@ export async function POST(req: Request) {
       metadata: session.metadata
     });
 
-    // Handle test webhook events
-    if (!metadata || Object.keys(metadata).length === 0) {
+    // Handle test webhook events - check session metadata directly
+    if (!session.metadata || Object.keys(session.metadata).length === 0) {
       console.log("Test webhook event received - no metadata present");
       return new Response("Test webhook received successfully", { status: 200 });
     }
+
+    const metadata = session.metadata as StripeCheckoutMetaData;
 
     try {
       // Check if this is a cart purchase
