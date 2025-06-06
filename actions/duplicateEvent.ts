@@ -44,10 +44,10 @@ export async function duplicateEvent({ eventId, newStartDate, newEndDate }: Dupl
           price: ticketType.price,
           totalQuantity: ticketType.totalQuantity,
           type: (ticketType.type as "leader" | "follower" | "refreshment" | "afterparty" | "other") ?? "other",
-          startDate: ticketType.startDate !== undefined ? ticketType.startDate : 0,
-          endDate: ticketType.endDate !== undefined ? ticketType.endDate : 0,
-          sortOrder: ticketType.sortOrder,
-        });
+           startDate: ticketType.startDate !== undefined ? ticketType.startDate : 0,
+           endDate: ticketType.endDate !== undefined ? ticketType.endDate : 0,
+           sortOrder: ticketType.sortOrder !== undefined ? ticketType.sortOrder : 0,
+         });
       })
     );
   }
