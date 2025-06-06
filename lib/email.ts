@@ -1,6 +1,16 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend: Resend | null = null;
+
+function getResendClient() {
+  if (!resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is not set');
+    }
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 export interface TicketEmailData {
   userEmail: string;
@@ -16,7 +26,13 @@ export interface TicketEmailData {
 
 export async function sendTicketConfirmationEmail(data: TicketEmailData) {
   try {
-    const { data: emailResult, error } = await resend.emails.send({
+    // Check if RESEND_API_KEY is available
+    if (!process.env.RESEND_API_KEY) {
+      console.log('RESEND_API_KEY not available, using fallback email service');
+      return await sendTicketConfirmationEmailFallback(data);
+    }
+
+    const { data: emailResult, error } = await getResendClient().emails.send({
       from: 'Tikello <onboarding@resend.dev>', // Using Resend's default domain for testing
       to: [data.userEmail],
       subject: `Your ticket for ${data.eventName} is confirmed!`,
@@ -32,7 +48,8 @@ export async function sendTicketConfirmationEmail(data: TicketEmailData) {
     return { success: true, data: emailResult };
   } catch (error) {
     console.error('Email service error:', error);
-    return { success: false, error };
+    // Fallback to development mode if Resend fails
+    return await sendTicketConfirmationEmailFallback(data);
   }
 }
 
