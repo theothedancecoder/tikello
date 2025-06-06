@@ -254,7 +254,7 @@ export const purchaseTicket = mutation({
     try {
       console.log("Creating ticket with payment info", paymentInfo);
       // Create ticket with payment info
-      await ctx.db.insert("tickets", {
+      const ticketId = await ctx.db.insert("tickets", {
         eventId,
         userId,
         purchasedAt: Date.now(),
@@ -264,6 +264,9 @@ export const purchaseTicket = mutation({
         originalAmount: paymentInfo.amount,
         stripeFees: paymentInfo.stripeFees,
       });
+
+      // Return ticket ID so webhook can trigger email
+      console.log("Ticket created with ID:", ticketId);
 
       console.log("Updating waiting list status to purchased");
       await ctx.db.patch(waitingListId, {

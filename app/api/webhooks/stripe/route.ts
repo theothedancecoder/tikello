@@ -7,6 +7,36 @@ import { StripeCheckoutMetaData } from "@/actions/createStripeCheckoutSession";
 import { StripeCheckoutMetaDataForTicketType } from "@/actions/createStripeCheckoutSessionForTicketType";
 import { StripeCheckoutMetaDataForCart } from "@/actions/createStripeCheckoutSessionForCart";
 import { clerkClient } from "@clerk/nextjs/server";
+import { sendTicketConfirmationEmail } from "@/lib/email";
+
+// Helper function to send confirmation email
+async function sendConfirmationEmail(convex: any, eventId: string, userId: string, ticketId: string, amount: number, currency: string = 'nok') {
+  try {
+    // Get event and user details
+    const [event, user] = await Promise.all([
+      convex.query(api.events.getById, { eventId }),
+      convex.query(api.users.getUserById, { userId: userId })
+    ]);
+
+    if (event && user) {
+      await sendTicketConfirmationEmail({
+        userEmail: user.email,
+        userName: user.name,
+        eventName: event.name,
+        eventDescription: event.description,
+        eventLocation: event.location,
+        eventDate: new Date(event.eventDate).toLocaleString(),
+        ticketId: ticketId,
+        amount: amount,
+        currency: event.currency || currency
+      });
+      console.log("Confirmation email sent successfully");
+    }
+  } catch (emailError) {
+    console.error("Failed to send confirmation email:", emailError);
+    // Don't fail the webhook if email fails
+  }
+}
 
 // Add GET handler for testing
 export async function GET() {
@@ -187,6 +217,15 @@ export async function POST(req: Request) {
             } : undefined,
           });
           console.log("Purchase cart tickets mutation completed:", result);
+
+          // Send confirmation email for cart purchase
+          await sendConfirmationEmail(
+            convex, 
+            cartMetadata.eventId, 
+            cartMetadata.userId, 
+            session.id, 
+            session.amount_total ?? 0
+          );
         } catch (parseError) {
           console.error("Failed to parse cart items:", parseError);
           console.error("Raw cartItems string:", cartMetadata.cartItems);
@@ -209,9 +248,19 @@ export async function POST(req: Request) {
           paymentInfo: {
             paymentIntentId: session.id,
             amount: session.amount_total ?? 0,
+            stripeFees: stripeFeesData,
           },
         });
         console.log("Purchase ticket type mutation completed:", result);
+
+        // Send confirmation email for ticket type purchase
+        await sendConfirmationEmail(
+          convex, 
+          ticketTypeMetadata.eventId, 
+          ticketTypeMetadata.userId, 
+          session.id, 
+          session.amount_total ?? 0
+        );
       } else {
         // Handle regular ticket purchase
         const regularMetadata = metadata as StripeCheckoutMetaData;
@@ -228,9 +277,13 @@ export async function POST(req: Request) {
           paymentInfo: {
             paymentIntentId: session.id,
             amount: session.amount_total ?? 0,
+            stripeFees: stripeFeesData,
           },
         });
         console.log("Purchase ticket mutation completed:", result);
+
+        // Send confirmation email
+        await sendConfirmationEmail(convex, regularMetadata.eventId, regularMetadata.userId, session.id, session.amount_total ?? 0);
       }
     } catch (error) {
       console.error("Error processing webhook:", error);

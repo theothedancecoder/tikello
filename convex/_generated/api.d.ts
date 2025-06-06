@@ -16,6 +16,7 @@ import type {
 import type * as buyers from "../buyers.js";
 import type * as constant from "../constant.js";
 import type * as discountCodes from "../discountCodes.js";
+import type * as email from "../email.js";
 import type * as events from "../events.js";
 import type * as storage from "../storage.js";
 import type * as ticketTypes from "../ticketTypes.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   buyers: typeof buyers;
   constant: typeof constant;
   discountCodes: typeof discountCodes;
+  email: typeof email;
   events: typeof events;
   storage: typeof storage;
   ticketTypes: typeof ticketTypes;
