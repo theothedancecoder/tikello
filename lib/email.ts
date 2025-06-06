@@ -17,7 +17,7 @@ export interface TicketEmailData {
 export async function sendTicketConfirmationEmail(data: TicketEmailData) {
   try {
     const { data: emailResult, error } = await resend.emails.send({
-      from: 'Tikello <noreply@tikello.com>', // Replace with your verified domain
+      from: 'Tikello <onboarding@resend.dev>', // Using Resend's default domain for testing
       to: [data.userEmail],
       subject: `Your ticket for ${data.eventName} is confirmed!`,
       html: generateTicketEmailHTML(data),
