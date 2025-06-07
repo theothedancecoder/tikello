@@ -1,77 +1,157 @@
-"use client";
-
-import React, { useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import React, { useState, useRef, useEffect } from "react";
+import { Html5Qrcode, QrcodeErrorCallback } from "html5-qrcode";
 
 interface TicketScannerProps {
-  eventId?: string;
+  eventId: string;
 }
 
-export default function TicketScanner({ eventId }: TicketScannerProps) {
-  const [scannedTicketId, setScannedTicketId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [validationResult, setValidationResult] = useState<any>(null);
+type QRScannerConfig = {
+  fps: number;
+  qrbox: { width: number; height: number };
+  aspectRatio: number;
+};
+
+interface ValidationResult {
+  success: boolean;
+  message: string;
+  ticket?: {
+    event?: string;
+    type?: string;
+    status?: string;
+    purchasedAt?: string;
+    usedAt?: string;
+    amount?: number;
+  };
+}
+
+export default function TicketScanner({ eventId }: TicketScannerProps): React.ReactElement {
   const [scanning, setScanning] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const [scannedTicketId, setScannedTicketId] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const html5QrcodeScannerRef = useRef<Html5Qrcode | null>(null);
 
   const requestCameraPermission = async () => {
     setIsRequestingPermission(true);
-    setErrorMessage(null);
-    
     try {
-      // Check if camera is available
-      const devices = await Html5Qrcode.getCameras();
-      if (devices.length === 0) {
-        setErrorMessage("No camera found on this device.");
-        setIsRequestingPermission(false);
-        return;
-      }
-
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop());
       setPermissionGranted(true);
       setScanning(true);
-    } catch (err) {
-      console.error("Camera permission error:", err);
+    } catch (error) {
+      console.error("Camera permission error:", error);
       setPermissionGranted(false);
-      setErrorMessage("Camera access denied. Please allow camera access to scan QR codes.");
     }
     setIsRequestingPermission(false);
   };
 
   useEffect(() => {
-    if (!scanning || !permissionGranted) {
-      html5QrcodeScannerRef.current?.stop().catch(() => {});
-      return;
+    let mounted = true;
+
+    const initializeScanner = async () => {
+      try {
+        // Clean up any existing scanner
+        if (html5QrcodeScannerRef.current) {
+          await html5QrcodeScannerRef.current.stop();
+          html5QrcodeScannerRef.current = null;
+        }
+
+        // Get available cameras
+        const devices = await Html5Qrcode.getCameras();
+        
+        if (!devices || devices.length === 0) {
+          throw new Error("No camera found on this device");
+        }
+
+        // Configure scanner
+        const minDimension = Math.min(window.innerWidth, window.innerHeight);
+        const qrboxSize = Math.min(250, minDimension * 0.7);
+        
+        const config = {
+          fps: 10,
+          qrbox: { width: qrboxSize, height: qrboxSize },
+          aspectRatio: 1.0
+        };
+
+        // Create scanner
+        const html5QrcodeScanner = new Html5Qrcode("qr-reader", { verbose: false });
+        html5QrcodeScannerRef.current = html5QrcodeScanner;
+
+        // Try to start with back camera first
+        try {
+          const backCamera = devices.find(device => 
+            device.label.toLowerCase().includes('back') || 
+            device.label.toLowerCase().includes('rear')
+          );
+          
+          if (backCamera) {
+            await html5QrcodeScanner.start(
+              { deviceId: backCamera.id },
+              config,
+              (decodedText) => {
+                if (!mounted) return;
+                setScanning(false);
+                setErrorMessage(null);
+                setScannedTicketId(decodedText);
+              },
+              (errorMessage: string) => {
+                if (!mounted) return;
+                // Only handle critical errors
+                if (errorMessage.includes('NotFound') || errorMessage.includes('NotAllowed')) {
+                  setErrorMessage("Camera access was lost. Please try again.");
+                  setScanning(false);
+                }
+              }
+            );
+            return;
+          }
+        } catch (error) {
+          console.log("Failed to start with back camera, trying default camera");
+        }
+
+        // If back camera fails or isn't found, try the first available camera
+        await html5QrcodeScanner.start(
+          { deviceId: devices[0].id },
+          config,
+          (decodedText) => {
+            if (!mounted) return;
+            setScanning(false);
+            setErrorMessage(null);
+            setScannedTicketId(decodedText);
+          },
+          (errorMessage: string) => {
+            if (!mounted) return;
+            // Only handle critical errors
+            if (errorMessage.includes('NotFound') || errorMessage.includes('NotAllowed')) {
+              setErrorMessage("Camera access was lost. Please try again.");
+              setScanning(false);
+            }
+          }
+        );
+
+      } catch (err) {
+        console.error("Scanner initialization error:", err);
+        if (mounted) {
+          setPermissionGranted(false);
+          setErrorMessage(err instanceof Error ? err.message : "Failed to initialize camera");
+          setScanning(false);
+        }
+      }
+    };
+
+    if (scanning && permissionGranted) {
+      initializeScanner();
     }
 
-    const config = { fps: 10, qrbox: 250 };
-    const verbose = false;
-    const html5QrcodeScanner = new Html5Qrcode("qr-reader", verbose);
-    html5QrcodeScannerRef.current = html5QrcodeScanner;
-
-    html5QrcodeScanner
-      .start(
-        { facingMode: "environment" },
-        config,
-        (decodedText) => {
-          setScanning(false);
-          setErrorMessage(null);
-          setScannedTicketId(decodedText);
-        },
-        (error) => {
-          // ignore scan errors during scanning
-        }
-      )
-      .catch((err) => {
-        console.error("Scanner start error:", err);
-        setPermissionGranted(false);
-        setErrorMessage("Unable to start camera. Please check camera permissions and try again.");
-      });
-
     return () => {
-      html5QrcodeScanner.stop().catch(() => {});
+      mounted = false;
+      if (html5QrcodeScannerRef.current) {
+        html5QrcodeScannerRef.current.stop().catch(() => {});
+        html5QrcodeScannerRef.current = null;
+      }
     };
   }, [scanning, permissionGranted]);
 
@@ -80,12 +160,11 @@ export default function TicketScanner({ eventId }: TicketScannerProps) {
     
     setIsValidating(true);
     setErrorMessage(null);
+    setValidationResult(null);
     
     try {
       if (!eventId) {
-        setErrorMessage("Event ID is missing. Please refresh the page and try again.");
-        setIsValidating(false);
-        return;
+        throw new Error("Event ID is missing. Please refresh the page and try again.");
       }
 
       const response = await fetch("/api/validate-ticket", {
@@ -100,18 +179,26 @@ export default function TicketScanner({ eventId }: TicketScannerProps) {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.message || 
+          `Server error (${response.status}). Please try again.`
+        );
       }
 
       const result = await response.json();
-      setValidationResult(result);
-
+      
       if (!result.success) {
-        setErrorMessage(result.message);
+        throw new Error(result.message);
       }
+
+      setValidationResult(result);
+      setScannedTicketId(null);
+      
     } catch (error) {
       console.error("Validation error:", error);
-      setErrorMessage(`Failed to validate ticket: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setErrorMessage(error instanceof Error ? error.message : 'An unknown error occurred');
+      setValidationResult(null);
     } finally {
       setIsValidating(false);
     }
@@ -128,93 +215,136 @@ export default function TicketScanner({ eventId }: TicketScannerProps) {
     <div className="max-w-md mx-auto p-4 bg-white rounded shadow">
       <h2 className="text-xl font-bold mb-4">Ticket QR Code Scanner</h2>
       
-      {/* Camera Permission Request */}
+      {/* Camera Permission States */}
       {permissionGranted === null && (
-        <div className="text-center">
-          <p className="mb-4 text-gray-600">
-            To scan QR codes, we need access to your camera. Click the button below to grant permission.
-          </p>
+        <div className="text-center p-6 bg-white rounded-lg shadow-sm border-2 border-blue-100">
+          <div className="mb-6">
+            <svg className="w-16 h-16 mx-auto text-blue-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Camera Access Required</h3>
+            <p className="text-gray-600 mb-4">
+              To scan QR codes, we need permission to use your camera. Your camera will only be used while scanning tickets.
+            </p>
+          </div>
           <button
             onClick={requestCameraPermission}
             disabled={isRequestingPermission}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {isRequestingPermission ? "Requesting Access..." : "Enable Camera"}
+            {isRequestingPermission ? (
+              <>
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Requesting Access...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span>Enable Camera</span>
+              </>
+            )}
           </button>
         </div>
       )}
 
       {/* Camera Permission Denied */}
       {permissionGranted === false && (
-        <div className="text-center">
-          <div className="mb-4 p-4 bg-yellow-100 text-yellow-800 rounded">
-            <p className="font-medium">Camera Access Required</p>
-            <p className="text-sm mt-1">
-              Please allow camera access in your browser settings to scan QR codes.
+        <div className="text-center p-6 bg-white rounded-lg shadow-sm border-2 border-yellow-200">
+          <div className="mb-6">
+            <svg className="w-16 h-16 mx-auto text-yellow-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Camera Access Denied</h3>
+            <p className="text-gray-600 mb-4">
+              Please allow camera access in your browser settings to scan QR codes. You may need to click the camera icon in your browser's address bar.
             </p>
           </div>
           <button
             onClick={requestCameraPermission}
             disabled={isRequestingPermission}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            className="w-full sm:w-auto px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {isRequestingPermission ? "Requesting Access..." : "Try Again"}
+            {isRequestingPermission ? (
+              <>
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Requesting Access...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Try Again</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Scanner */}
+      {scanning && permissionGranted && (
+        <div className="relative">
+          <div id="qr-reader" className="w-full rounded-lg overflow-hidden border-2 border-blue-200" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white">
+            <div className="text-center p-4 bg-black bg-opacity-75 rounded-lg">
+              <svg className="animate-spin h-8 w-8 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p>Initializing camera...</p>
+              <p className="text-sm text-gray-300 mt-2">Please position the QR code within the frame</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Scanned Ticket - Awaiting Validation */}
+      {scannedTicketId && !validationResult && (
+        <div className="mt-4 p-4 bg-yellow-50 border-2 border-yellow-500 rounded">
+          <p className="font-medium mb-2">QR Code Scanned</p>
+          <p className="text-sm text-gray-600 mb-4">Validating ticket...</p>
+          <button
+            onClick={handleValidate}
+            disabled={isValidating}
+            className="w-full bg-yellow-500 text-white py-2 px-4 rounded hover:bg-yellow-600 disabled:opacity-50"
+          >
+            {isValidating ? "Validating..." : "Validate Ticket"}
           </button>
         </div>
       )}
 
       {/* Error Display */}
       {errorMessage && (
-        <div className="mb-4 p-4 bg-red-100 text-red-800 rounded border border-red-300">
-          <p className="font-medium">Error:</p>
-          <p>{errorMessage}</p>
+        <div className="mb-4 p-4 bg-red-100 text-red-800 rounded-lg border-2 border-red-400 shadow-sm">
+          <div className="flex items-center mb-2">
+            <svg className="w-5 h-5 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="font-semibold text-red-700">Error</p>
+          </div>
+          <p className="ml-7">{errorMessage}</p>
+          <button
+            onClick={() => {
+              setErrorMessage(null);
+              setScanning(true);
+            }}
+            className="ml-7 mt-2 text-sm text-red-700 hover:text-red-800 font-medium"
+          >
+            Try Again
+          </button>
         </div>
       )}
 
-      {/* Scanner */}
-      {scanning && permissionGranted && <div id="qr-reader" style={{ width: "100%" }} />}
-      
-      {/* Scanned Ticket - Awaiting Validation */}
-      {scannedTicketId && !validationResult && (
-        <div className="mt-4 p-4 bg-yellow-50 border-2 border-yellow-500 rounded">
-          <div className="flex items-center mb-4">
-            <svg className="w-8 h-8 text-yellow-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p className="text-xl font-bold text-yellow-800">Ticket Scanned</p>
-          </div>
-          <p className="mb-4 text-yellow-800">Please verify the ticket details below before validating.</p>
-          
-          <div className="flex space-x-4">
-            <button
-              onClick={handleValidate}
-              disabled={isValidating}
-              className={`px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
-                isValidating ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isValidating ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Validating...
-                </span>
-              ) : (
-                'Validate Ticket'
-              )}
-            </button>
-            <button
-              onClick={handleReset}
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-            >
-              Scan Different Ticket
-            </button>
-          </div>
-        </div>
-      )}
-      
       {/* Validation Results */}
       {validationResult && (
         <div className={`mt-4 p-4 rounded ${
@@ -238,7 +368,7 @@ export default function TicketScanner({ eventId }: TicketScannerProps) {
             )}
           </div>
 
-          <p className="font-bold mb-4">{validationResult.success ? validationResult.message : errorMessage}</p>
+          <p className="font-bold mb-4">{validationResult.message}</p>
 
           {validationResult?.ticket && (
             <div className="mt-2 text-sm space-y-2 border-t pt-4">
@@ -251,50 +381,35 @@ export default function TicketScanner({ eventId }: TicketScannerProps) {
                   <p className="font-semibold text-gray-600">Ticket Type</p>
                   <p>{validationResult.ticket.type}</p>
                 </div>
-                {validationResult.ticket.buyerName && (
-                  <div>
-                    <p className="font-semibold text-gray-600">Attendee</p>
-                    <p>{validationResult.ticket.buyerName}</p>
-                  </div>
-                )}
-                {validationResult.ticket.buyerEmail && (
-                  <div>
-                    <p className="font-semibold text-gray-600">Email</p>
-                    <p>{validationResult.ticket.buyerEmail}</p>
-                  </div>
-                )}
-                {validationResult.ticket.purchasedAt && (
-                  <div>
-                    <p className="font-semibold text-gray-600">Purchased</p>
-                    <p>{new Date(validationResult.ticket.purchasedAt).toLocaleDateString()}</p>
-                  </div>
-                )}
-                {validationResult.ticket.status && !validationResult.success && (
+                {validationResult.ticket.status && (
                   <div>
                     <p className="font-semibold text-gray-600">Status</p>
-                    <p className="uppercase font-medium">{validationResult.ticket.status}</p>
+                    <p className={`uppercase font-medium ${
+                      validationResult.ticket.status === 'used' ? 'text-red-600' : 
+                      validationResult.ticket.status === 'valid' ? 'text-green-600' : 
+                      'text-gray-600'
+                    }`}>
+                      {validationResult.ticket.status}
+                    </p>
                   </div>
                 )}
                 {validationResult.ticket.usedAt && (
                   <div>
                     <p className="font-semibold text-gray-600">Used At</p>
-                    <p>{new Date(validationResult.ticket.usedAt).toLocaleString()}</p>
+                    <p className="text-red-600">{new Date(validationResult.ticket.usedAt).toLocaleString()}</p>
                   </div>
                 )}
               </div>
             </div>
           )}
+
+          <button
+            onClick={handleReset}
+            className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+          >
+            Scan Another Ticket
+          </button>
         </div>
-      )}
-      
-      {/* Reset Button */}
-      {!scanning && permissionGranted && (
-        <button
-          onClick={handleReset}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Scan Another Ticket
-        </button>
       )}
     </div>
   );

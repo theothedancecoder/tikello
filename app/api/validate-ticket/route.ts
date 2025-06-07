@@ -47,8 +47,20 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
+      // Check if ticket belongs to this event first
+      if (ticket.eventId !== parsedEventId) {
+        return NextResponse.json({ 
+          success: false, 
+          message: "This ticket is for a different event",
+          ticket: {
+            event: ticket.event?.name,
+            type: ticket.ticketTypeId ? "Premium" : "Standard"
+          }
+        }, { status: 400 });
+      }
+
+      // Then check ticket status
       if (ticket.status === "used") {
-        const usedDate = new Date(ticket.purchasedAt).toLocaleString();
         return NextResponse.json({ 
           success: false, 
           message: "Ticket has already been used",
@@ -56,7 +68,7 @@ export async function POST(request: NextRequest) {
             status: ticket.status,
             event: ticket.event?.name,
             type: ticket.ticketTypeId ? "Premium" : "Standard",
-            usedAt: usedDate
+            purchasedAt: new Date(ticket.purchasedAt).toLocaleString()
           }
         }, { status: 400 });
       }
@@ -73,19 +85,23 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      // Mark the ticket as used
+      // If all checks pass, mark the ticket as used
       await convex.mutation(api.tickets.updateTicketStatus, { 
         ticketId: parsedTicketId,
-        status: "used" 
+        status: "used"
       });
 
+      const now = new Date().toISOString();
+      
       return NextResponse.json({ 
         success: true, 
         message: "Ticket validated successfully",
         ticket: {
           event: ticket.event?.name,
           type: ticket.ticketTypeId ? "Premium" : "Standard",
-          purchasedAt: new Date(ticket.purchasedAt).toLocaleString(),
+          status: "used",
+          purchasedAt: ticket.purchasedAt,
+          usedAt: now,
           amount: ticket.amount
         }
       });

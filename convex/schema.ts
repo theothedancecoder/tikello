@@ -27,6 +27,7 @@ export default defineSchema({
     discountAmount: v.optional(v.number()),
     ticketTypeId: v.optional(v.id("ticketTypes")),
     discountCodeId: v.optional(v.id("discountCodes")),
+    usedAt: v.optional(v.string()),
     // Stripe fee breakdown
     stripeFees: v.optional(v.object({
       gross: v.number(),

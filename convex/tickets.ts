@@ -57,6 +57,12 @@ export const updateTicketStatus = mutation({
     ),
   },
   handler: async (ctx, { ticketId, status }) => {
-    await ctx.db.patch(ticketId, { status });
+    const updates: any = { status };
+    
+    if (status === "used") {
+      updates.usedAt = new Date().toISOString();
+    }
+
+    await ctx.db.patch(ticketId, updates);
   },
 });
