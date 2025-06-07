@@ -4,7 +4,7 @@ import { useUser } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import React, { useState, useEffect } from "react";
-import { CalendarDays, Cog, Plus } from "lucide-react";
+import { CalendarDays, Cog, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import Spinner from "./Spinner";
 import { AccountStatus, getStripeConnectAccountStatus } from "@/actions/getStripeAccountStatus";
@@ -118,7 +118,7 @@ export default function SellerDashboard() {
                   className="border p-4 rounded shadow flex justify-between items-center"
                 >
                   <div>
-                    <h4 className="text-lg font-semibold">{event.name}</h4>
+                    <h4 className="text-sm font-normal text-gray-600">{event.name}</h4>
                     <p className="text-gray-600">
                       Date: {new Date(event.eventDate).toLocaleDateString()}
                     </p>
@@ -127,8 +127,9 @@ export default function SellerDashboard() {
                   <div>
                     <Link
                       href={`/seller/events/${event._id}/scan`}
-                      className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
+                      className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
                     >
+                      <Search className="w-5 h-5" />
                       Scan Tickets
                     </Link>
                   </div>

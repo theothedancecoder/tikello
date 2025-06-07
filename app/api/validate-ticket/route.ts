@@ -15,18 +15,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Event ID is required" }, { status: 400 });
     }
 
+    // Try to parse as Convex IDs to validate format
+    const parsedTicketId = ticketId as Id<"tickets">;
+    const parsedEventId = eventId as Id<"events">;
+
+    if (!parsedTicketId || !parsedEventId) {
+      return NextResponse.json({ success: false, message: "Invalid ID format" }, { status: 400 });
+    }
+
     const convex = getConvexClient();
 
     try {
       // Fetch the ticket details
-      const ticket = await convex.query(api.tickets.getTicketWithDetails, { ticketId: ticketId as Id<"tickets"> });
+      const ticket = await convex.query(api.tickets.getTicketWithDetails, { 
+        ticketId: parsedTicketId
+      });
 
       if (!ticket) {
         return NextResponse.json({ success: false, message: "Ticket not found" }, { status: 404 });
       }
 
       // Verify the ticket belongs to this event
-      if (ticket.eventId !== eventId) {
+      if (ticket.eventId !== parsedEventId) {
         return NextResponse.json({ 
           success: false, 
           message: "This ticket is for a different event",
@@ -65,7 +75,7 @@ export async function POST(request: NextRequest) {
 
       // Mark the ticket as used
       await convex.mutation(api.tickets.updateTicketStatus, { 
-        ticketId: ticketId as Id<"tickets">, 
+        ticketId: parsedTicketId,
         status: "used" 
       });
 

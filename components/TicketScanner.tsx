@@ -79,14 +79,29 @@ export default function TicketScanner({ eventId }: TicketScannerProps) {
     if (!scannedTicketId) return;
     
     setIsValidating(true);
+    setErrorMessage(null);
+    
     try {
+      if (!eventId) {
+        setErrorMessage("Event ID is missing. Please refresh the page and try again.");
+        setIsValidating(false);
+        return;
+      }
+
       const response = await fetch("/api/validate-ticket", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ ticketId: scannedTicketId, eventId }),
+        body: JSON.stringify({ 
+          ticketId: scannedTicketId,
+          eventId: eventId
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const result = await response.json();
       setValidationResult(result);
@@ -95,7 +110,8 @@ export default function TicketScanner({ eventId }: TicketScannerProps) {
         setErrorMessage(result.message);
       }
     } catch (error) {
-      setErrorMessage("Failed to validate ticket. Please try again.");
+      console.error("Validation error:", error);
+      setErrorMessage(`Failed to validate ticket: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsValidating(false);
     }
@@ -144,6 +160,14 @@ export default function TicketScanner({ eventId }: TicketScannerProps) {
           >
             {isRequestingPermission ? "Requesting Access..." : "Try Again"}
           </button>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {errorMessage && (
+        <div className="mb-4 p-4 bg-red-100 text-red-800 rounded border border-red-300">
+          <p className="font-medium">Error:</p>
+          <p>{errorMessage}</p>
         </div>
       )}
 
