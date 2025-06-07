@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import SyncUserWithConvex from "@/components/SyncUserWithConvex";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import CookieConsent from "@/components/CookieConsent";
@@ -49,6 +50,7 @@ export default function RootLayout({
                   <main className="flex-grow">
                     {children}
                   </main>
+                  <Footer/>
                   <CookieConsent/>
                   <Toaster/>
                 </div>

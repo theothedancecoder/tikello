@@ -32,20 +32,64 @@ export default function TicketScanner({ eventId }: TicketScannerProps): React.Re
   const [isValidating, setIsValidating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const html5QrcodeScannerRef = useRef<Html5Qrcode | null>(null);
 
   const requestCameraPermission = async () => {
     setIsRequestingPermission(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      console.log("Requesting camera permission...");
+      
+      // First check if permissions API is available
+      if (navigator.permissions && navigator.permissions.query) {
+        const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        console.log("Permission status:", result.state);
+        
+        if (result.state === 'denied') {
+          throw new Error('Camera permission has been denied. Please enable it in your browser settings.');
+        }
+      }
+
+      // Try to get camera access
+      console.log("Attempting to access camera...");
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: {
+          facingMode: 'environment' // Prefer back camera
+        } 
+      });
+      
+      console.log("Camera access granted, checking devices...");
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      console.log("Available video devices:", videoDevices);
+
+      // Stop the test stream
       stream.getTracks().forEach(track => track.stop());
+      
+      console.log("Camera permission granted successfully");
       setPermissionGranted(true);
       setScanning(true);
     } catch (error) {
       console.error("Camera permission error:", error);
+      let errorMessage = "Failed to access camera. ";
+      
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          errorMessage += "Camera access was denied. Please allow camera access in your browser settings.";
+        } else if (error.name === 'NotFoundError') {
+          errorMessage += "No camera was found on your device.";
+        } else if (error.name === 'NotReadableError') {
+          errorMessage += "Camera is already in use by another application.";
+        } else {
+          errorMessage += error.message;
+        }
+      }
+      
+      setErrorMessage(errorMessage);
       setPermissionGranted(false);
+    } finally {
+      setIsRequestingPermission(false);
     }
-    setIsRequestingPermission(false);
   };
 
   useEffect(() => {
@@ -76,9 +120,26 @@ export default function TicketScanner({ eventId }: TicketScannerProps): React.Re
           aspectRatio: 1.0
         };
 
-        // Create scanner
-        const html5QrcodeScanner = new Html5Qrcode("qr-reader", { verbose: false });
+        // Create scanner with verbose logging for debugging
+        const html5QrcodeScanner = new Html5Qrcode("qr-reader", { verbose: true });
         html5QrcodeScannerRef.current = html5QrcodeScanner;
+        console.log("Scanner created successfully");
+
+        const onScanSuccess = (decodedText: string) => {
+          if (!mounted) return;
+          setScanning(false);
+          setErrorMessage(null);
+          setScannedTicketId(decodedText);
+        };
+
+        const onScanError = (errorMessage: string) => {
+          if (!mounted) return;
+          // Only handle critical errors
+          if (errorMessage.includes('NotFound') || errorMessage.includes('NotAllowed')) {
+            setErrorMessage("Camera access was lost. Please try again.");
+            setScanning(false);
+          }
+        };
 
         // Try to start with back camera first
         try {
@@ -87,50 +148,50 @@ export default function TicketScanner({ eventId }: TicketScannerProps): React.Re
             device.label.toLowerCase().includes('rear')
           );
           
+          console.log("Available cameras:", devices.map(d => ({ id: d.id, label: d.label })));
+          console.log("Back camera found:", backCamera);
+          
           if (backCamera) {
+            console.log("Starting scanner with back camera:", backCamera.id);
             await html5QrcodeScanner.start(
               { deviceId: backCamera.id },
               config,
-              (decodedText) => {
-                if (!mounted) return;
-                setScanning(false);
-                setErrorMessage(null);
-                setScannedTicketId(decodedText);
-              },
-              (errorMessage: string) => {
-                if (!mounted) return;
-                // Only handle critical errors
-                if (errorMessage.includes('NotFound') || errorMessage.includes('NotAllowed')) {
-                  setErrorMessage("Camera access was lost. Please try again.");
-                  setScanning(false);
-                }
-              }
+              onScanSuccess,
+              onScanError
             );
+            
+            console.log("Back camera started successfully");
+            // Set camera ready after a short delay to ensure video is loaded
+            setTimeout(() => {
+              if (mounted) {
+                console.log("Setting camera ready to true");
+                setIsCameraReady(true);
+              }
+            }, 1000);
             return;
           }
         } catch (error) {
-          console.log("Failed to start with back camera, trying default camera");
+          console.error("Failed to start with back camera:", error);
+          console.log("Trying default camera");
         }
 
         // If back camera fails or isn't found, try the first available camera
+        console.log("Starting scanner with first available camera:", devices[0].id);
         await html5QrcodeScanner.start(
           { deviceId: devices[0].id },
           config,
-          (decodedText) => {
-            if (!mounted) return;
-            setScanning(false);
-            setErrorMessage(null);
-            setScannedTicketId(decodedText);
-          },
-          (errorMessage: string) => {
-            if (!mounted) return;
-            // Only handle critical errors
-            if (errorMessage.includes('NotFound') || errorMessage.includes('NotAllowed')) {
-              setErrorMessage("Camera access was lost. Please try again.");
-              setScanning(false);
-            }
-          }
+          onScanSuccess,
+          onScanError
         );
+
+        console.log("Default camera started successfully");
+        // Set camera ready after a short delay to ensure video is loaded
+        setTimeout(() => {
+          if (mounted) {
+            console.log("Setting camera ready to true (default camera)");
+            setIsCameraReady(true);
+          }
+        }, 1000);
 
       } catch (err) {
         console.error("Scanner initialization error:", err);
@@ -148,6 +209,7 @@ export default function TicketScanner({ eventId }: TicketScannerProps): React.Re
 
     return () => {
       mounted = false;
+      setIsCameraReady(false);
       if (html5QrcodeScannerRef.current) {
         html5QrcodeScannerRef.current.stop().catch(() => {});
         html5QrcodeScannerRef.current = null;
@@ -208,6 +270,7 @@ export default function TicketScanner({ eventId }: TicketScannerProps): React.Re
     setScannedTicketId(null);
     setErrorMessage(null);
     setValidationResult(null);
+    setIsCameraReady(false);
     setScanning(true);
   };
 
@@ -294,17 +357,43 @@ export default function TicketScanner({ eventId }: TicketScannerProps): React.Re
       {/* Scanner */}
       {scanning && permissionGranted && (
         <div className="relative">
-          <div id="qr-reader" className="w-full rounded-lg overflow-hidden border-2 border-blue-200" />
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white">
-            <div className="text-center p-4 bg-black bg-opacity-75 rounded-lg">
-              <svg className="animate-spin h-8 w-8 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <p>Initializing camera...</p>
-              <p className="text-sm text-gray-300 mt-2">Please position the QR code within the frame</p>
-            </div>
+          <div id="qr-reader" className="w-full rounded-lg overflow-hidden border-2 border-blue-200">
+            <style jsx>{`
+              #qr-reader video {
+                width: 100% !important;
+                height: auto !important;
+                min-height: 300px;
+                object-fit: cover;
+              }
+              #qr-reader__scan_region {
+                background: transparent !important;
+              }
+              #qr-reader__scan_region > img {
+                display: none !important;
+              }
+              #qr-reader__dashboard {
+                padding: 0 !important;
+              }
+            `}</style>
           </div>
+          {!isCameraReady && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white">
+              <div className="text-center p-4 bg-black bg-opacity-75 rounded-lg">
+                <svg className="animate-spin h-8 w-8 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p>Initializing camera...</p>
+              </div>
+            </div>
+          )}
+          {isCameraReady && (
+            <div className="absolute top-2 left-2 right-2 text-center">
+              <div className="inline-block bg-black bg-opacity-75 text-white px-3 py-1 rounded text-sm">
+                Position QR code within frame
+              </div>
+            </div>
+          )}
         </div>
       )}
       
